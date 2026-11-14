@@ -68,6 +68,7 @@ class WidgetScene
                       const WidgetStyles& styles, const ResolvedTheme& theme);
     // The StatRows view: one icon + value line per visible stat, stacked top to bottom. `shadow`
     // adds a drop shadow when the panel background is not drawn.
+    void DrawSwitchMetrics(ID2D1RenderTarget* target, const ResolvedTheme& theme);
     void DrawStatRows(ID2D1RenderTarget* target, const ResolvedTheme& theme, bool shadow);
 
     bool initialized_ = false;

@@ -44,13 +44,20 @@ enum class OverlayCommand : std::uint16_t
     ViewStatRows = 17,
     ViewFpsText = 18,
     ViewFpsOnly = 19,
+    ViewSwitchBar = 20,
+    ViewSwitchPanel = 21,
 };
 
 // The View submenu's items, in display order.
+#ifdef PACECAR_SWITCH
+inline constexpr std::array<OverlayCommand, 2> kViewMenuCommands{
+    OverlayCommand::ViewSwitchBar, OverlayCommand::ViewSwitchPanel};
+#else
 inline constexpr std::array<OverlayCommand, 6> kViewMenuCommands{
     OverlayCommand::ViewFull,      OverlayCommand::ViewLargeVisuals,
     OverlayCommand::ViewSmallText, OverlayCommand::ViewStatRows,
     OverlayCommand::ViewFpsText,   OverlayCommand::ViewFpsOnly};
+#endif
 
 // Maps a View* menu command to the presentation view it selects, or nullopt for other commands.
 [[nodiscard]] inline std::optional<pacecar::ViewMode> ViewModeForCommand(
@@ -58,6 +65,8 @@ inline constexpr std::array<OverlayCommand, 6> kViewMenuCommands{
 {
     switch (command)
     {
+    case OverlayCommand::ViewSwitchBar: return pacecar::ViewMode::SwitchBar;
+    case OverlayCommand::ViewSwitchPanel: return pacecar::ViewMode::SwitchPanel;
     case OverlayCommand::ViewFull:
         return pacecar::ViewMode::Full;
     case OverlayCommand::ViewLargeVisuals:
@@ -80,6 +89,8 @@ inline constexpr std::array<OverlayCommand, 6> kViewMenuCommands{
 {
     switch (view)
     {
+    case pacecar::ViewMode::SwitchBar: return OverlayCommand::ViewSwitchBar;
+    case pacecar::ViewMode::SwitchPanel: return OverlayCommand::ViewSwitchPanel;
     case pacecar::ViewMode::Full:
         return OverlayCommand::ViewFull;
     case pacecar::ViewMode::LargeVisuals:
@@ -156,6 +167,8 @@ inline constexpr std::array<OverlayCommand, 10> kTrayMenuCommands{
         return L"Transparent background";
     case OverlayCommand::View:
         return L"View";
+    case OverlayCommand::ViewSwitchBar: return L"横向长条";
+    case OverlayCommand::ViewSwitchPanel: return L"监控面板";
     case OverlayCommand::ViewFull:
         return L"Full panel";
     case OverlayCommand::ViewLargeVisuals:
@@ -178,6 +191,6 @@ inline constexpr std::array<OverlayCommand, 10> kTrayMenuCommands{
 [[nodiscard]] inline bool IsOverlayCommand(unsigned id) noexcept
 {
     return id >= static_cast<unsigned>(OverlayCommand::Mode) &&
-           id <= static_cast<unsigned>(OverlayCommand::ViewFpsOnly);
+           id <= static_cast<unsigned>(OverlayCommand::ViewSwitchPanel);
 }
 } // namespace pacecar::overlay

@@ -160,6 +160,19 @@ struct FanMetrics
     std::uint32_t fanCount = 0;
 };
 
+// Switch telemetry is independent of generic Windows/desktop-vendor estimates.
+// Valid bits are reset every sample; missing hardware never becomes a fake zero.
+enum SwitchValid : std::uint32_t {
+    SwitchCpu=1u, SwitchGpu=2u, SwitchRam=4u, SwitchFan=8u,
+    SwitchSocTemp=16u, SwitchBoardTemp=32u, SwitchBattery=64u
+};
+struct SwitchSocMetrics {
+    std::uint32_t valid=0, cpuKhz=0, gpuKhz=0, ramKhz=0, fanPwm=0;
+    std::uint32_t cpuMv=0, gpuUv=0, socTempC=0, boardTempC=0;
+    std::uint32_t batteryPercent=0, error=0, gpuSampleAgeMs=~0u;
+    bool externalPower=false, charging=false, nativeBridge=false;
+};
+
 struct MetricsSnapshot
 {
     // Monotonic publication counter (incremented once per published snapshot) and the aggregator
@@ -168,6 +181,9 @@ struct MetricsSnapshot
     std::uint64_t tickIndex = 0;
     std::uint64_t timestampMs = 0;
 
+    // 0 unknown, 1 Vulkan, 2 Zink, 9/10/11 DXVK frontend.
+    std::uint32_t graphicsApi=0, graphicsApiPid=0;
+    SwitchSocMetrics soc{};
     CpuMetrics cpu{};
     MemoryMetrics memory{};
     GpuMetrics gpu{};

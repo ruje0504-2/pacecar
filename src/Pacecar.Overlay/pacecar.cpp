@@ -1,3 +1,5 @@
+#include "pacecar/metrics/SwitchSocProvider.h"
+#include <filesystem>
 // pacecar.cpp : Overlay host process.
 //
 // The app shell: command-line parse, config load, per-user single-instance guard, overlay window,
@@ -153,7 +155,7 @@ void AppendLifecycleLog(const std::wstring& path, std::wstring_view event)
     {
         return;
     }
-    std::ofstream file(path, std::ios::app | std::ios::binary);
+    std::ofstream file(std::filesystem::path(path), std::ios::app | std::ios::binary);
     if (!file)
     {
         return;
@@ -362,6 +364,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
+#ifdef PACECAR_SWITCH
+    if(lpCmdLine && wcsstr(lpCmdLine,L"--switch-snapshot")) {
+        const auto value=pacecar::metrics::MakeSwitchSocSource()->Read();
+        char json[768];int n=snprintf(json,sizeof(json),
+            "{\"valid\":%u,\"cpu_khz\":%u,\"gpu_khz\":%u,\"ram_khz\":%u,"
+            "\"fan_pwm\":%u,\"soc_temp_c\":%u,\"board_temp_c\":%u,\"battery_percent\":%u,"
+            "\"cpu_mv\":%u,\"gpu_uv\":%u,\"gpu_age_ms\":%u,\"native_bridge\":%s,\"error\":%u}\n",
+            value.valid,value.cpuKhz,value.gpuKhz,value.ramKhz,value.fanPwm,value.socTempC,
+            value.boardTempC,value.batteryPercent,value.cpuMv,value.gpuUv,value.gpuSampleAgeMs,
+            value.nativeBridge?"true":"false",value.error);
+        DWORD written=0;if(n>0)WriteFile(GetStdHandle(STD_OUTPUT_HANDLE),json,(DWORD)n,&written,nullptr);
+        return value.nativeBridge?0:3;
+    }
+#endif
 
     const HRESULT comResult =
         CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
@@ -428,6 +444,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     }
 
     pacecar::overlay::OverlayOptions options;
+#ifdef PACECAR_SWITCH
+    options.defaultWidthDip=640; options.defaultHeightDip=58;
+    config.sensors.deep_sensors=false;
+    if(config.general.view!=pacecar::ViewMode::SwitchBar && config.general.view!=pacecar::ViewMode::SwitchPanel)
+        config.general.view=pacecar::ViewMode::SwitchBar;
+#endif
     options.recipe = commandLine.recipe;
     options.clickThrough = commandLine.clickThroughOverride >= 0
                                ? commandLine.clickThroughOverride == 1
@@ -621,6 +643,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             {
                 config.sensors.fps_capture = true;
             }
+#ifdef PACECAR_SWITCH
+            if(config.general.view!=appliedView){
+                UINT dpi=GetDpiForWindow(overlay.Hwnd());if(!dpi)dpi=96;
+                const bool bar=config.general.view==pacecar::ViewMode::SwitchBar;
+                SetWindowPos(overlay.Hwnd(),nullptr,0,0,MulDiv(bar?640:360,dpi,96),MulDiv(bar?58:290,dpi,96),SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
+                overlay.OnDisplayChange();
+            }
+#endif
             appliedView = config.general.view;
             overlay.ApplyConfig(config);
             const auto refreshMs =
@@ -753,6 +783,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 config.general.view = pacecar::overlay::NextViewMode(config.general.view);
                 applyConfigChanges();
                 break;
+            case pacecar::overlay::OverlayCommand::ViewSwitchBar:
+            case pacecar::overlay::OverlayCommand::ViewSwitchPanel:
             case pacecar::overlay::OverlayCommand::ViewFull:
             case pacecar::overlay::OverlayCommand::ViewLargeVisuals:
             case pacecar::overlay::OverlayCommand::ViewSmallText:

@@ -272,6 +272,9 @@ void ApplyViewMode(LayoutSettings& settings, pacecar::ViewMode view) noexcept
     settings.view = view;
     switch (view)
     {
+    case pacecar::ViewMode::SwitchBar:
+    case pacecar::ViewMode::SwitchPanel:
+        settings.drawHeader=false; settings.panelPadding=6.0f; break;
     case pacecar::ViewMode::LargeVisuals: {
         // Bigger gauges/graphs with room for the value line inside the diagram. The chosen layout
         // preset (3x3 vs 1x6) still decides the arrangement.
@@ -453,6 +456,8 @@ LayoutSettings LayoutSettingsFromConfig(const pacecar::Config& config) noexcept
 
 TileSize MeasureLayout(const LayoutSettings& settings) noexcept
 {
+    if(settings.view==pacecar::ViewMode::SwitchBar) return TileSize{480.0f,48.0f};
+    if(settings.view==pacecar::ViewMode::SwitchPanel) return TileSize{260.0f,280.0f};
     std::array<std::size_t, kMaxTiles> ids{};
     const std::size_t count = CollectVisible(settings, ids);
     const float width = settings.panelPadding * 2.0f;

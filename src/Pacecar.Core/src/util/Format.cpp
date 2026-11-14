@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cwchar>
+#include <iterator>
 
 namespace pacecar
 {
@@ -48,7 +49,7 @@ class Builder
 
         wchar_t number[64]{};
         const int written =
-            _snwprintf_s(number, _countof(number), _TRUNCATE, L"%.*f", decimals, value);
+            _snwprintf_s(number, std::size(number), _TRUNCATE, L"%.*f", decimals, value);
         if (written < 0)
         {
             return;
@@ -90,7 +91,7 @@ class Builder
 void AppendByteUnits(Builder& builder, double value, int decimals, wchar_t separator) noexcept
 {
     constexpr const wchar_t* kUnits[] = {L"B", L"KiB", L"MiB", L"GiB", L"TiB", L"PiB"};
-    constexpr int kLastUnit = static_cast<int>(_countof(kUnits)) - 1;
+    constexpr int kLastUnit = static_cast<int>(std::size(kUnits)) - 1;
 
     int unit = 0;
     while (value >= 1024.0 && unit < kLastUnit)
@@ -119,7 +120,7 @@ wchar_t DecimalSeparator(DecimalStyle style) noexcept
 
     wchar_t buffer[8]{};
     const int count = GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SDECIMAL, buffer,
-                                      static_cast<int>(_countof(buffer)));
+                                      static_cast<int>(std::size(buffer)));
     if (count > 1 && buffer[0] != L'\0')
     {
         return buffer[0];
@@ -244,7 +245,7 @@ std::wstring_view FormatDuration(std::span<wchar_t> buffer, double seconds, int 
         const int minutes = total / 60;
         const int remainder = total % 60;
         wchar_t text[32]{};
-        _snwprintf_s(text, _countof(text), _TRUNCATE, L"%dm %02ds", minutes, remainder);
+        _snwprintf_s(text, std::size(text), _TRUNCATE, L"%dm %02ds", minutes, remainder);
         builder.Append(text);
         return builder.View();
     }
@@ -253,7 +254,7 @@ std::wstring_view FormatDuration(std::span<wchar_t> buffer, double seconds, int 
     const int hours = total / 3600;
     const int minutes = (total % 3600) / 60;
     wchar_t text[32]{};
-    _snwprintf_s(text, _countof(text), _TRUNCATE, L"%dh %02dm", hours, minutes);
+    _snwprintf_s(text, std::size(text), _TRUNCATE, L"%dh %02dm", hours, minutes);
     builder.Append(text);
     return builder.View();
 }

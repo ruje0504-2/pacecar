@@ -355,16 +355,24 @@ void SettingsWindow::BuildPages()
     for (int i = 0; i < kPageCount; ++i)
     {
         TCITEMW item{};
-        item.mask = TCIF_TEXT;
+#ifdef PACECAR_SWITCH
+        if(i==kPageTiles || i==kPageHistory)continue;
+#endif
+        item.mask = TCIF_TEXT | TCIF_PARAM;
+        item.lParam=i;
         item.pszText = const_cast<wchar_t*>(pages_[i].title.c_str());
-        TabCtrl_InsertItem(tab_, i, &item);
+        TabCtrl_InsertItem(tab_, TabCtrl_GetItemCount(tab_), &item);
     }
 
     BuildGeneralPage();
     BuildOverlayPage();
+#ifndef PACECAR_SWITCH
     BuildTilesPage();
+#endif
     BuildSensorsPage();
+#ifndef PACECAR_SWITCH
     BuildHistoryPage();
+#endif
     BuildHotkeysPage();
     BuildAboutPage();
 
@@ -398,7 +406,9 @@ void SettingsWindow::BuildGeneralPage()
     AddControl(page, MakeLabel(hwnd_, instance_, L"Refresh rate (ms):", 16, 48, 120));
     AddControl(page, MakeLabel(hwnd_, instance_, L"Opacity:", 16, 80, 120));
     AddControl(page, MakeLabel(hwnd_, instance_, L"Theme:", 16, 112, 120));
+#ifndef PACECAR_SWITCH
     AddControl(page, MakeLabel(hwnd_, instance_, L"Layout preset:", 16, 144, 120));
+#endif
     AddControl(page, MakeLabel(hwnd_, instance_, L"View:", 16, 176, 120));
 
     HWND refresh = CreateWindowExW(
@@ -431,6 +441,7 @@ void SettingsWindow::BuildGeneralPage()
         SendMessageW(theme, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(name));
     }
 
+#ifndef PACECAR_SWITCH
     HWND layout = CreateWindowExW(
         0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
         150, 141, 180, 200, hwnd_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdLayoutCombo)),
@@ -443,13 +454,18 @@ void SettingsWindow::BuildGeneralPage()
         SendMessageW(layout, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(name));
     }
 
+#endif
     HWND view = CreateWindowExW(
         0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
         150, 173, 180, 200, hwnd_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdViewCombo)),
         instance_, nullptr);
     AddControl(page, view);
+#ifdef PACECAR_SWITCH
+    const std::array<const wchar_t*,2> viewNames{L"横向长条",L"监控面板"};
+#else
     const std::array<const wchar_t*, 6> viewNames{L"Full panel", L"Large visuals", L"Small text",
                                                   L"Stat rows",  L"FPS text",     L"FPS only"};
+#endif
     for (const wchar_t* name : viewNames)
     {
         SendMessageW(view, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(name));
@@ -594,6 +610,13 @@ void SettingsWindow::BuildTilesPage()
 
 void SettingsWindow::BuildSensorsPage()
 {
+#ifdef PACECAR_SWITCH
+    AddControl(kPageSensors,MakeLabel(hwnd_,instance_,L"Switch SoC: SwitchFan + GM20B KMD",16,44,440));
+    AddControl(kPageSensors,MakeLabel(hwnd_,instance_,L"温度: TMP451 SoC / 主板；风扇: PWM（无 RPM 回读）",16,76,480));
+    AddControl(kPageSensors,MakeLabel(hwnd_,instance_,L"GPU 必须有新硬件采样；缺失或过期时显示 --。",16,108,480));
+    AddControl(kPageSensors,MakeLabel(hwnd_,instance_,L"FPS: 托盘开启 ETW 采集；不提供整机功耗估算。",16,140,480));
+    return;
+#endif
     const int page = kPageSensors;
     const int labelX = 16;
     const int comboX = 150;
@@ -762,7 +785,10 @@ void SettingsWindow::ShowPage(int index)
             ShowWindow(control, show);
         }
     }
-    TabCtrl_SetCurSel(tab_, index);
+    for(int tab=0;tab<TabCtrl_GetItemCount(tab_);++tab){
+        TCITEMW item{};item.mask=TCIF_PARAM;
+        if(TabCtrl_GetItem(tab_,tab,&item) && item.lParam==index){TabCtrl_SetCurSel(tab_,tab);break;}
+    }
 }
 
 void SettingsWindow::RefreshFromConfig()
@@ -906,7 +932,9 @@ void SettingsWindow::UpdateViewDependentControls()
     const std::size_t index = static_cast<std::size_t>(binding_->ViewIndex());
     const bool statRows =
         index < kViewOptions.size() &&
-        (kViewOptions[index] == pacecar::ViewMode::StatRows ||
+        (kViewOptions[index] == pacecar::ViewMode::SwitchBar ||
+         kViewOptions[index] == pacecar::ViewMode::SwitchPanel ||
+         kViewOptions[index] == pacecar::ViewMode::StatRows ||
          kViewOptions[index] == pacecar::ViewMode::FpsText);
     // The value font size only affects the StatRows / FPS-text views; grey it out elsewhere so it
     // never looks like a no-op.
@@ -1302,7 +1330,8 @@ LRESULT SettingsWindow::HandleMessage(HWND hwnd, UINT message, WPARAM wParam, LP
         auto* header = reinterpret_cast<NMHDR*>(lParam);
         if (header != nullptr && header->code == TCN_SELCHANGE && header->hwndFrom == tab_)
         {
-            ShowPage(TabCtrl_GetCurSel(tab_));
+            TCITEMW item{};item.mask=TCIF_PARAM;
+            if(TabCtrl_GetItem(tab_,TabCtrl_GetCurSel(tab_),&item))ShowPage(static_cast<int>(item.lParam));
             return 0;
         }
         break;

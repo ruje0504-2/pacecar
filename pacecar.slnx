@@ -1,6 +1,7 @@
 <Solution>
   <Configurations>
     <Platform Name="x64" />
+    <Platform Name="ARM64" />
   </Configurations>
   <Project Path="src/Pacecar.App.Tests/Pacecar.App.Tests.vcxproj" Id="fbefe939-18bc-40f7-a25e-f870d6e56043" />
   <Project Path="src/Pacecar.Core/Pacecar.Core.vcxproj" Id="b940e323-d96b-4dcb-9882-af29944a206d" />

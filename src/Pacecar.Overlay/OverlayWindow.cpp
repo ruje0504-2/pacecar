@@ -951,6 +951,9 @@ void OverlayWindow::ShowContextMenu(POINT screenPoint)
     }
     for (const OverlayCommand command : kContextMenuCommands)
     {
+#ifdef PACECAR_SWITCH
+        if(command==OverlayCommand::History || command==OverlayCommand::Specs || command==OverlayCommand::CopySystemInfo) continue;
+#endif
         // Group the menu: view controls, windows, capture, then lifecycle.
         if (command == OverlayCommand::Settings || command == OverlayCommand::ToggleFrameCapture ||
             command == OverlayCommand::Hide)

@@ -14,6 +14,8 @@ void CopyName(char* dst, const char* src, std::size_t capacity) noexcept
 
 void MetricsSnapshot::ResetValues() noexcept
 {
+    graphicsApi=graphicsApiPid=0;
+    soc = SwitchSocMetrics{};
     sequence = 0;
     tickIndex = 0;
     timestampMs = 0;
@@ -58,6 +60,8 @@ void MetricsSnapshot::ResetValues() noexcept
 
 void MetricsSnapshot::CopyFrom(const MetricsSnapshot& other)
 {
+    graphicsApi=other.graphicsApi;graphicsApiPid=other.graphicsApiPid;
+    soc = other.soc;
     sequence = other.sequence;
     tickIndex = other.tickIndex;
     timestampMs = other.timestampMs;

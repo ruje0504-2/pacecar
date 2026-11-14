@@ -25,6 +25,7 @@
 
   <PropertyGroup Label="vcpkg manifest mode">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
+    <VcpkgTriplet Condition="'$(VcpkgTriplet)' == '' and '$(Platform)' == 'ARM64'">arm64-windows-static</VcpkgTriplet>
     <VcpkgTriplet Condition="'$(VcpkgTriplet)' == ''">x64-windows-static</VcpkgTriplet>
     <!-- Set this explicitly: vcpkg.props is imported here, before UseDebugLibraries is defined, so
          it cannot infer the right debug/release library subdirectory on its own. -->
@@ -42,6 +43,7 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <PreprocessorDefinitions Condition="'$(Platform)'=='ARM64'">PACECAR_SWITCH=1;UNICODE;_UNICODE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <WarningLevel>Level4</WarningLevel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>

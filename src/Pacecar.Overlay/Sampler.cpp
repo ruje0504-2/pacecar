@@ -11,6 +11,8 @@
 #include "OverlayWindow.h"
 #include "pacecar/app/AppIdentity.h"
 #include "pacecar/metrics/CpuProvider.h"
+#include "pacecar/metrics/SwitchSocProvider.h"
+#include "pacecar/metrics/GraphicsApiProvider.h"
 #include "pacecar/metrics/DiskProvider.h"
 #include "pacecar/metrics/GpuPdhProvider.h"
 #include "pacecar/metrics/HistoryRetention.h"
@@ -93,6 +95,9 @@ bool Sampler::Start(const pacecar::Config& config, HWND wakeWindow)
                                                std::chrono::milliseconds(
                                                    static_cast<int>(config.general.refresh)));
     historyCapacity_ = retention.rawCapacity;
+#ifdef PACECAR_SWITCH
+    historyCapacity_ = 2; // compact Switch views have no long-term history panel
+#endif
 
     aggregator_ =
         std::make_unique<pacecar::metrics::Aggregator>(historyCapacity_,
@@ -123,12 +128,14 @@ void Sampler::BuildProviders(const pacecar::Config& config)
 {
     providerCount_ = 0;
 
+#ifndef PACECAR_SWITCH
     {
         const auto source = pacecar::metrics::MakeWin32PawnIOSource();
         pawnIoStatus_ = pacecar::metrics::DetectPawnIO(*source);
     }
 
-    aggregator_->ReserveProviders(10);
+#endif
+    aggregator_->ReserveProviders(11);
     aggregator_->AddProvider(std::make_shared<pacecar::metrics::CpuProvider>());
     aggregator_->AddProvider(std::make_shared<pacecar::metrics::MemoryProvider>());
     gpuProvider_ = std::make_shared<pacecar::metrics::GpuPdhProvider>(
@@ -138,6 +145,7 @@ void Sampler::BuildProviders(const pacecar::Config& config)
     gpuProvider_->SetTargetPid(foregroundPid_.load(std::memory_order_relaxed));
     aggregator_->AddProvider(gpuProvider_);
     // Registered after the PDH provider so vendor values override the baseline within one tick.
+#ifndef PACECAR_SWITCH
     vendorProvider_ = std::make_shared<pacecar::metrics::GpuVendorProvider>(
         config.sensors.gpu_selection);
     aggregator_->AddProvider(vendorProvider_);
@@ -149,6 +157,7 @@ void Sampler::BuildProviders(const pacecar::Config& config)
     aggregator_->AddProvider(std::make_shared<pacecar::metrics::PingProvider>(
         pacecar::metrics::MakeIcmpPingSource(), config.sensors.ping_target));
 
+#endif
     // Registered last so a real package/board/fan/dimm reading overrides the best-effort ACPI
     // baseline. The provider is always registered so the Settings toggle can enable it at runtime;
     // while disabled it reports the deep-sensor domain unavailable and touches nothing else.
@@ -171,6 +180,10 @@ void Sampler::BuildProviders(const pacecar::Config& config)
         helperClient_->SetCaptureTarget(foregroundPid_.load(std::memory_order_relaxed), true);
     }
 
+#ifdef PACECAR_SWITCH
+    aggregator_->AddProvider(std::make_shared<pacecar::metrics::SwitchSocProvider>());
+    aggregator_->AddProvider(std::make_shared<pacecar::metrics::GraphicsApiProvider>([this]{return foregroundPid_.load(std::memory_order_relaxed);}));
+#endif
     providerCount_ = aggregator_->ProviderCount();
 }
 
@@ -224,8 +237,12 @@ void Sampler::TickOnce()
     // the overlay may be hidden or not repainting while a game runs, which would otherwise leave the
     // capture target unset (the helper would sit in NoTarget and never open an ETW session). Never
     // target ourselves, so opening a Pacecar window does not hijack the capture.
+#ifndef PACECAR_SWITCH
     if (frameCaptureEnabled_.load(std::memory_order_relaxed) && helperClient_)
+#endif
     {
+        // API identification is read-only and also follows the foreground app
+        // when the optional elevated FPS capture is disabled.
         const std::uint32_t pid = ForegroundWindowPid();
         if (pid != 0 && pid != GetCurrentProcessId())
         {

@@ -30,15 +30,19 @@ internal static class Program
             }
         }
 
+#if !PACECAR_SWITCH
         var pawnIoPresent = PawnIOProbe.IsPresent();
         Console.WriteLine($"[main] PawnIO: {(pawnIoPresent ? "present" : "absent")}");
         Console.WriteLine($"[main] {PawnIOProbe.Guidance(pawnIoPresent)}");
 
+#endif
         HelperLog.Write($"[main] starting; pid={Environment.ProcessId} elevated={TraceEventSession.IsElevated() == true}");
         HelperLog.Write($"[main] pipe={pipeName}");
 
+#if !PACECAR_SWITCH
         using var sensors = new SensorServer();
         sensors.Open();
+#endif
 
         using var cancellation = new CancellationTokenSource();
         Console.CancelKeyPress += (_, eventArgs) =>
@@ -50,7 +54,13 @@ internal static class Program
         using var frameTime = new EtwFrameTime();
         var server = new PipeServer(pipeName, userSid, frameTime);
         Console.WriteLine($"[main] listening on {pipeName}");
+#if PACECAR_SWITCH
+        // SoC sensors are read by the native UI from SwitchFan. This ARM64 helper
+        // owns only the opt-in ETW session; no x86 PawnIO/LHM driver is loaded.
+        server.Run(() => Array.Empty<IpcProtocol.Reading>(), TimeSpan.FromMilliseconds(250), cancellation.Token);
+#else
         server.Run(sensors.Read, TimeSpan.FromSeconds(1), cancellation.Token);
+#endif
         Console.WriteLine("[main] stopped");
         return 0;
     }

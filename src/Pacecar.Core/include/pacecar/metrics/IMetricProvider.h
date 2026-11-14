@@ -21,7 +21,7 @@
 #include <chrono>
 #include <cstdint>
 
-#include <winerror.h>
+#include <windows.h>
 
 #include "pacecar/metrics/MetricsSnapshot.h"
 

@@ -524,6 +524,9 @@ void WidgetScene::Draw(ID2D1RenderTarget* target, const ResolvedTheme& theme)
     const bool captureActive = haveFrame && !Unavailable(frame_->snapshot->frame.status) &&
                                frame_->snapshot->frame.fps > 0.0;
 
+    if(settings_.view==pacecar::ViewMode::SwitchBar || settings_.view==pacecar::ViewMode::SwitchPanel){
+        DrawSwitchMetrics(target,theme); return;
+    }
     if (settings_.view == pacecar::ViewMode::StatRows ||
         settings_.view == pacecar::ViewMode::FpsText)
     {
@@ -580,6 +583,45 @@ void WidgetScene::Draw(ID2D1RenderTarget* target, const ResolvedTheme& theme)
         {
             DrawDemoTile(target, layout.tiles[i], i, viewStyles, theme);
         }
+    }
+}
+
+void WidgetScene::DrawSwitchMetrics(ID2D1RenderTarget* target, const ResolvedTheme& theme)
+{
+    using namespace pacecar::metrics;
+    const D2D1_SIZE_F size=target->GetSize();
+    const bool panel=settings_.view==pacecar::ViewMode::SwitchPanel;
+    constexpr unsigned count=9;
+    const unsigned columns=panel?3u:count,rows=panel?3u:1u;
+    const float cellWidth=(size.width-12.0f)/columns,cellHeight=(size.height-12.0f)/rows;
+    const MetricsSnapshot empty{};
+    const auto& snap=frame_&&frame_->snapshot?*frame_->snapshot:empty;
+    const auto& soc=snap.soc;
+    const wchar_t* labels[count]={L"CPU MHz",L"GPU MHz",L"RAM MHz",L"风扇 PWM",L"SoC 温度",L"主板温度",L"电池",L"应用 FPS",L"图形 API"};
+    if(soc.externalPower)labels[6]=soc.charging?L"电池 · 充电":L"电池 · 接电";
+    wchar_t values[count][48]{};
+    for(auto& value:values)wcscpy_s(value,L"--");
+    if(soc.valid&SwitchCpu)_snwprintf_s(values[0],48,_TRUNCATE,L"%.1f",soc.cpuKhz/1000.0);
+    if(soc.valid&SwitchGpu)_snwprintf_s(values[1],48,_TRUNCATE,L"%.1f",soc.gpuKhz/1000.0);
+    if(soc.valid&SwitchRam)_snwprintf_s(values[2],48,_TRUNCATE,L"%.0f",soc.ramKhz/1000.0);
+    if(soc.valid&SwitchFan)_snwprintf_s(values[3],48,_TRUNCATE,L"%.0f%%",soc.fanPwm*100.0/236.0);
+    if(soc.valid&SwitchSocTemp)_snwprintf_s(values[4],48,_TRUNCATE,L"%u°C",soc.socTempC);
+    if(soc.valid&SwitchBoardTemp)_snwprintf_s(values[5],48,_TRUNCATE,L"%u°C",soc.boardTempC);
+    if(soc.valid&SwitchBattery)_snwprintf_s(values[6],48,_TRUNCATE,L"%u%%",soc.batteryPercent);
+    if(!Unavailable(snap.frame.status))_snwprintf_s(values[7],48,_TRUNCATE,L"%.1f",snap.frame.fps);
+    else wcscpy_s(values[7],L"未采集");
+    const wchar_t* api=L"未确认";
+    switch(snap.graphicsApi){case 1:api=L"Vulkan";break;case 2:api=L"Zink";break;
+        case 9:labels[8]=L"DXVK";api=L"(DX9)";break;case 10:labels[8]=L"DXVK";api=L"(DX10)";break;case 11:labels[8]=L"DXVK";api=L"(DX11)";break;}
+    wcscpy_s(values[8],api);
+    ID2D1SolidColorBrush* labelBrush=statLabelBrush_.Get(target,theme.palette.textDim);
+    ID2D1SolidColorBrush* valueBrush=statValueBrush_.Get(target,theme.palette.text);
+    if(!labelBrush||!valueBrush)return;
+    for(unsigned i=0;i<count;++i){
+        const float x=6.0f+(i%columns)*cellWidth,y=6.0f+(i/columns)*cellHeight;
+        const float valueY=y+cellHeight*0.42f;
+        text_.DrawText(target,styles_.statLabel,labels[i],RectF{x+3,y,x+cellWidth-3,valueY},labelBrush);
+        text_.DrawText(target,panel?styles_.primarySmall:styles_.statValue,values[i],RectF{x+3,valueY,x+cellWidth-3,y+cellHeight},valueBrush);
     }
 }
 

@@ -187,9 +187,9 @@ constexpr auto kThemeNames =
     std::array<std::pair<const char*, int>, 3>{{{"dark", 0}, {"light", 1}, {"high_contrast", 2}}};
 constexpr auto kLayoutNames = std::array<std::pair<const char*, int>, 4>{
     {{"compact_3x3", 0}, {"vertical_1x6", 1}, {"auto_fit", 2}, {"custom", 3}}};
-constexpr auto kViewNames = std::array<std::pair<const char*, int>, 6>{
+constexpr auto kViewNames = std::array<std::pair<const char*, int>, 8>{
     {{"full", 0},   {"large_visuals", 1}, {"small_text", 2},
-     {"stat_rows", 3}, {"fps_text", 4},   {"fps_only", 5}}};
+     {"stat_rows", 3}, {"fps_text", 4},   {"fps_only", 5}, {"switch_bar",6}, {"switch_panel",7}}};
 constexpr auto kOverlayModeNames =
     std::array<std::pair<const char*, int>, 2>{{{"interactive", 0}, {"click_through", 1}}};
 constexpr auto kVisualizationNames =
@@ -233,6 +233,8 @@ const char* ViewToString(ViewMode view)
 {
     switch (view)
     {
+    case ViewMode::SwitchBar: return "switch_bar";
+    case ViewMode::SwitchPanel: return "switch_panel";
     case ViewMode::LargeVisuals:
         return "large_visuals";
     case ViewMode::SmallText:
@@ -600,7 +602,7 @@ void Config::Clamp()
     general.opacity = std::clamp(general.opacity, 0.1, 1.0);
 
     if (static_cast<int>(general.view) < static_cast<int>(ViewMode::Full) ||
-        static_cast<int>(general.view) > static_cast<int>(ViewMode::FpsOnly))
+        static_cast<int>(general.view) > static_cast<int>(ViewMode::SwitchPanel))
     {
         general.view = ViewMode::StatRows;
     }
@@ -663,7 +665,11 @@ std::filesystem::path Config::DefaultPath()
         return {};
     }
     buffer.resize(length);
+#ifdef PACECAR_SWITCH
+    return std::filesystem::path(buffer) / L"PacecarSwitch" / L"config.json";
+#else
     return std::filesystem::path(buffer) / L"Pacecar" / L"config.json";
+#endif
 }
 
 Config Config::Load()

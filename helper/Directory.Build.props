@@ -5,4 +5,8 @@
     `build/Directory.Build.props` and are imported explicitly by the .vcxproj files; the managed
     helper must not inherit the C++/vcpkg/static-CRT (/MT) settings.
   -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)'=='Pacecar.SwitchCapture'">
+    <BaseIntermediateOutputPath>obj-switch/</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>obj-switch/</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
 </Project>

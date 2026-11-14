@@ -64,6 +64,7 @@ build/*
 # Native build output and the vcpkg manifest install tree
 /out/
 /vcpkg_installed/
+helper/**/obj-switch/
 
 # Release packaging output (portable zip + Inno Setup installer)
 /dist/

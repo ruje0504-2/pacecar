@@ -131,12 +131,14 @@ void Tray::Destroy()
 
 void Tray::SetTooltip(std::wstring_view tooltip)
 {
-    if (!created_)
-    {
-        return;
-    }
+    if (hwnd_ == nullptr) return;
     const std::wstring tip(tooltip.substr(0, std::min(tooltip.size(), kTooltipCapacity)));
     wcsncpy_s(iconData_.szTip, tip.c_str(), _TRUNCATE);
+    if (!created_) {
+        iconData_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+        created_ = Shell_NotifyIconW(NIM_ADD, &iconData_) != FALSE;
+        return;
+    }
     iconData_.uFlags = NIF_TIP;
     Shell_NotifyIconW(NIM_MODIFY, &iconData_);
     iconData_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
@@ -171,6 +173,9 @@ void Tray::ShowMenu(POINT screenPoint)
 
     for (const OverlayCommand command : kTrayMenuCommands)
     {
+#ifdef PACECAR_SWITCH
+        if(command==OverlayCommand::History || command==OverlayCommand::Specs || command==OverlayCommand::CopySystemInfo) continue;
+#endif
         // Group the menu: show/hide, view controls, windows, capture/output, lifecycle.
         if (command == OverlayCommand::View || command == OverlayCommand::Settings ||
             command == OverlayCommand::CopySystemInfo || command == OverlayCommand::Exit)
@@ -250,12 +255,14 @@ LRESULT CALLBACK Tray::StaticWndProc(HWND hwnd, UINT message, WPARAM wParam, LPA
 
 LRESULT Tray::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
+    static const UINT taskbarCreated=RegisterWindowMessageW(L"TaskbarCreated");
+    if(message==taskbarCreated){created_=Shell_NotifyIconW(NIM_ADD,&iconData_)!=FALSE;return 0;}
     switch (message)
     {
     case WM_APP_TRAY:
         switch (LOWORD(lParam))
         {
-        case WM_LBUTTONDBLCLK:
+        case WM_LBUTTONUP:
             if (commandCallback_)
             {
                 commandCallback_(OverlayCommand::ToggleVisibility);

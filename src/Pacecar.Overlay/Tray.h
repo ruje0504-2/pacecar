@@ -13,6 +13,7 @@
 #include <string_view>
 
 #include <windows.h>
+#include <shellapi.h>
 
 #include "pacecar/overlay/OverlayCommands.h"
 

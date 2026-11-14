@@ -35,7 +35,11 @@ internal sealed class EtwFrameTime : IDisposable
     // launcher, ...): differencing presents across chains produces meaningless intervals. The swap
     // chain identity is read by name from the event payload because the exact field differs per
     // provider and manifest version.
+#if PACECAR_SWITCH
+    private const string SessionName = "Pacecar.Switch.FrameTime";
+#else
     private const string SessionName = "Pacecar.FrameTime";
+#endif
     private const int MaxQueuedEvents = 4096;
 
     private readonly object _lock = new();
@@ -47,6 +51,10 @@ internal sealed class EtwFrameTime : IDisposable
     private long _queueDrops;
     private long _eventsSeen;
     private long _presentsSeen;
+
+    // PresentMon f50c407ad9492051f4b834d77c31c49f38f0fef0:
+    // Microsoft_Windows_DxgKrnl::Present_Info = 0x00b8.
+
 
     // The helper runs hidden, so console output is invisible; HelperLog mirrors it to a file.
     private static void Log(string message) => HelperLog.Write(message);
@@ -109,6 +117,7 @@ internal sealed class EtwFrameTime : IDisposable
         Interlocked.Exchange(ref _queueDrops, 0);
         Interlocked.Exchange(ref _eventsSeen, 0);
         Interlocked.Exchange(ref _presentsSeen, 0);
+
         try
         {
             // A real-time ETW session outlives the process that created it if that process is killed
@@ -120,10 +129,16 @@ internal sealed class EtwFrameTime : IDisposable
             {
                 StopOnDispose = true,
             };
+#if PACECAR_SWITCH
+            // One canonical kernel Present stream for every frontend: no
+            // double-counting runtime+kernel events or confusing DWM with the target.
+            session.EnableProvider(DxgKrnlProvider, TraceEventLevel.Informational, 0x4000000008000001UL);
+#else
             session.EnableProvider(DxgiProvider, TraceEventLevel.Verbose);
             session.EnableProvider(D3d9Provider, TraceEventLevel.Verbose);
             session.EnableProvider(DxgKrnlProvider, TraceEventLevel.Informational);
             session.EnableProvider(DwmProvider, TraceEventLevel.Informational);
+#endif
             session.Source.AllEvents += data => OnEvent(data, pid);
             Log("[fps] session opened; DXGI/D3D9/DxgKrnl/DWM providers enabled");
 
@@ -211,8 +226,12 @@ internal sealed class EtwFrameTime : IDisposable
 
         var guid = data.ProviderGuid;
         var id = (int)data.ID;
+#if PACECAR_SWITCH
+        var isPresent = SwitchPresentSelector.Accept(guid, id);
+#else
         var isPresent = (guid == DxgiProvider && id == DxgiPresentStartId) ||
                         (guid == D3d9Provider && id == D3d9PresentStartId);
+#endif
         if (!isPresent)
         {
             return;
@@ -266,7 +285,7 @@ internal sealed class EtwFrameTime : IDisposable
             // to "unknown" (0, a single stream) rather than mis-attributing presents.
             foreach (var name in data.PayloadNames)
             {
-                if (name.Contains("SwapChain", StringComparison.OrdinalIgnoreCase))
+                if (name.Contains("SwapChain", StringComparison.OrdinalIgnoreCase) || name.Equals("hWindow", StringComparison.OrdinalIgnoreCase))
                 {
                     var raw = data.PayloadByName(name);
                     if (raw is not null)

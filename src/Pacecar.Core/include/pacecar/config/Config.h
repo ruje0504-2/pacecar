@@ -77,6 +77,8 @@ enum class ViewMode
     StatRows,
     FpsText,
     FpsOnly,
+    SwitchBar,
+    SwitchPanel,
 };
 
 enum class OverlayMode
@@ -185,10 +187,18 @@ struct GeneralConfig
     LayoutPreset layout = LayoutPreset::Compact3x3;
     // The active presentation view (cycled at runtime via menu/hotkey). Defaults to the plain
     // StatRows text list so a fresh install reads as a minimal, background-free readout.
+#ifdef PACECAR_SWITCH
+    ViewMode view = ViewMode::SwitchBar;
+#else
     ViewMode view = ViewMode::StatRows;
+#endif
     // Value font size for the text views, in device-independent pixels. Small by default so the
     // StatRows view reads as a discreet list; adjustable live from Settings. Clamped by `Clamp()`.
+#ifdef PACECAR_SWITCH
+    int stat_text_size = 11;
+#else
     int stat_text_size = 9;
+#endif
     // When true the panel/header background is not drawn, so the overlay is just text (and, in the
     // visual views, the accent drawings) floating over the desktop/game.
     bool transparent_background = false;

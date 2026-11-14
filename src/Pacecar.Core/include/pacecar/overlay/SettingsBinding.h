@@ -32,9 +32,13 @@ inline constexpr std::array<Theme, 3> kThemeOptions{Theme::Dark, Theme::Light, T
 inline constexpr std::array<LayoutPreset, 4> kLayoutOptions{
     LayoutPreset::Compact3x3, LayoutPreset::Vertical1x6, LayoutPreset::AutoFit,
     LayoutPreset::Custom};
+#ifdef PACECAR_SWITCH
+inline constexpr std::array<ViewMode, 2> kViewOptions{ViewMode::SwitchBar,ViewMode::SwitchPanel};
+#else
 inline constexpr std::array<ViewMode, 6> kViewOptions{
     ViewMode::Full,      ViewMode::LargeVisuals, ViewMode::SmallText,
     ViewMode::StatRows,  ViewMode::FpsText,      ViewMode::FpsOnly};
+#endif
 inline constexpr std::array<OverlayMode, 2> kOverlayModeOptions{OverlayMode::Interactive,
                                                                 OverlayMode::ClickThrough};
 inline constexpr std::array<Visualization, 2> kVisualizationOptions{Visualization::Gauges,
