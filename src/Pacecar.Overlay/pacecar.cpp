@@ -206,26 +206,10 @@ void SyncStartWithWindows(const pacecar::Config& config)
     {
         return;
     }
-    std::wstring existing;
-    const bool present = pacecar::app::ReadStartupValue(pacecar::app::kStartupRunKey,
-                                                        pacecar::app::kStartupValueName, existing);
-    if (config.general.start_with_windows)
-    {
-        const std::wstring desired =
-            pacecar::app::BuildStartupCommand(executable, config.general.start_hidden);
-        if (!present || existing != desired)
-        {
-            std::wstring error;
-            static_cast<void>(pacecar::app::WriteStartupValue(
-                pacecar::app::kStartupRunKey, pacecar::app::kStartupValueName, desired, &error));
-        }
-    }
-    else if (present)
-    {
-        std::wstring error;
-        static_cast<void>(pacecar::app::DeleteStartupValue(
-            pacecar::app::kStartupRunKey, pacecar::app::kStartupValueName, &error));
-    }
+    std::wstring error;
+    if (!pacecar::app::SetStartWithWindows(executable, config.general.start_with_windows,
+                                          config.general.start_hidden, &error))
+        pacecar::LogWarn(L"startup: " + error);
 }
 
 CommandLineOptions ParseCommandLine()

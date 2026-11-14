@@ -101,6 +101,7 @@ class Sampler
     [[nodiscard]] std::wstring FrameCaptureStatus() const;
 
   private:
+    friend struct SamplerPoolTestAccess;
     void ThreadMain();
     void TickOnce();
     void PublishFrame(std::shared_ptr<const pacecar::metrics::MetricsSnapshot> snapshot);

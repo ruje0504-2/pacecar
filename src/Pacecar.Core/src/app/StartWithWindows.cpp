@@ -5,6 +5,7 @@
 #endif
 
 #include <windows.h>
+#include "pacecar/app/ScheduledStartup.h"
 
 namespace pacecar::app
 {
@@ -150,6 +151,13 @@ bool DeleteStartupValue(std::wstring_view subKey, std::wstring_view valueName, s
 bool SetStartWithWindows(std::wstring_view executablePath, bool enabled, bool startHidden,
                          std::wstring* error)
 {
+    BOOL active = enabled;
+    const HRESULT hr = SwitchStartupTask(kStartupValueName, TRUE, &active);
+    if (hr != S_FALSE)
+    {
+        if (FAILED(hr)) SetError(error, L"set login task", static_cast<LSTATUS>(hr));
+        return SUCCEEDED(hr) && (active != FALSE) == enabled;
+    }
     if (!enabled)
     {
         return DeleteStartupValue(kStartupRunKey, kStartupValueName, error);
@@ -160,6 +168,14 @@ bool SetStartWithWindows(std::wstring_view executablePath, bool enabled, bool st
 
 bool IsStartWithWindowsEnabled(std::wstring* commandOut, std::wstring* error)
 {
+    BOOL active = FALSE;
+    const HRESULT hr = SwitchStartupTask(kStartupValueName, FALSE, &active);
+    if (hr != S_FALSE)
+    {
+        if (commandOut) commandOut->clear();
+        if (FAILED(hr)) SetError(error, L"read login task", static_cast<LSTATUS>(hr));
+        return SUCCEEDED(hr) && active;
+    }
     std::wstring command;
     if (!ReadStartupValue(kStartupRunKey, kStartupValueName, command))
     {

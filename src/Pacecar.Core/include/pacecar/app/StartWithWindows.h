@@ -1,6 +1,7 @@
 #pragma once
 
-// Per-user "start with Windows" registration via `HKCU\...\Run` (design refs 04-ui-ux.md "Settings
+// Per-user "start with Windows" registration via an installed interactive login task,
+// or `HKCU\...\Run` for standalone installations (design refs 04-ui-ux.md "Settings
 // window", 06-security-distribution.md "Elevation model": per-user auto-start needs no elevation).
 //
 // Only the current user's hive is touched, so the overlay never prompts for elevation to auto-start.
@@ -28,7 +29,8 @@ inline constexpr wchar_t kStartupValueName[] = L"Pacecar";
 [[nodiscard]] bool DeleteStartupValue(std::wstring_view subKey, std::wstring_view valueName,
                                       std::wstring* error);
 
-// Convenience over the Run key. `SetStartWithWindows(exe, false, ...)` removes the value.
+// The managed task follows start_hidden from config at launch; disabling startup
+// disables that task. Standalone installations add/remove their Run value.
 [[nodiscard]] bool SetStartWithWindows(std::wstring_view executablePath, bool enabled,
                                        bool startHidden, std::wstring* error);
 [[nodiscard]] bool IsStartWithWindowsEnabled(std::wstring* commandOut, std::wstring* error);

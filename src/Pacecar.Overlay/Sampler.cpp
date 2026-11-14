@@ -250,6 +250,19 @@ void Sampler::TickOnce()
         }
     }
 
+    // Unused display frames must release their snapshots before the aggregator
+    // looks for a free slot. Otherwise a delayed UI can fill the snapshot pool:
+    // Tick then stops publishing, so PublishFrame never gets to reuse the idle
+    // frames that still pin those snapshots. Frames held by the UI or published
+    // as LatestFrame remain immutable and are never cleared here.
+    for (auto& frame : framePool_)
+    {
+        if (frame.use_count() == 1)
+        {
+            frame->snapshot.reset();
+        }
+    }
+
     if (!aggregator_->Tick())
     {
         return;
