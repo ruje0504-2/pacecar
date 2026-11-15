@@ -199,7 +199,7 @@ void CopyTextToClipboard(HWND owner, const std::wstring& text)
     CloseClipboard();
 }
 
-void SyncStartWithWindows(const pacecar::Config& config)
+void SyncStartWithWindows(pacecar::Config& config)
 {
     wchar_t executable[MAX_PATH] = {};
     if (GetModuleFileNameW(nullptr, executable, MAX_PATH) == 0)
@@ -209,7 +209,13 @@ void SyncStartWithWindows(const pacecar::Config& config)
     std::wstring error;
     if (!pacecar::app::SetStartWithWindows(executable, config.general.start_with_windows,
                                           config.general.start_hidden, &error))
+    {
         pacecar::LogWarn(L"startup: " + error);
+        std::wstring readError;
+        const bool live = pacecar::app::IsStartWithWindowsEnabled(nullptr, &readError);
+        if (readError.empty())
+            config.general.start_with_windows = live;
+    }
 }
 
 CommandLineOptions ParseCommandLine()
@@ -354,10 +360,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         char json[768];int n=snprintf(json,sizeof(json),
             "{\"valid\":%u,\"cpu_khz\":%u,\"gpu_khz\":%u,\"ram_khz\":%u,"
             "\"fan_pwm\":%u,\"soc_temp_c\":%u,\"board_temp_c\":%u,\"battery_percent\":%u,"
-            "\"cpu_mv\":%u,\"gpu_uv\":%u,\"gpu_age_ms\":%u,\"native_bridge\":%s,\"error\":%u}\n",
+            "\"cpu_mv\":%u,\"gpu_uv\":%u,\"gpu_age_ms\":%u,\"native_bridge\":%s,\"error\":%u,"
+            "\"ram_age_ms\":%u,\"ram_error\":%u,\"battery_uv\":%u,\"battery_ua\":%d,"
+            "\"battery_uw\":%d,\"battery_age_ms\":%u,\"battery_error\":%u}\n",
             value.valid,value.cpuKhz,value.gpuKhz,value.ramKhz,value.fanPwm,value.socTempC,
             value.boardTempC,value.batteryPercent,value.cpuMv,value.gpuUv,value.gpuSampleAgeMs,
-            value.nativeBridge?"true":"false",value.error);
+            value.nativeBridge?"true":"false",value.error,value.ramSampleAgeMs,value.ramError,
+            value.batteryVoltageUv,value.batteryCurrentUa,value.batteryPowerUw,
+            value.batterySampleAgeMs,value.batteryPowerError);
         DWORD written=0;if(n>0)WriteFile(GetStdHandle(STD_OUTPUT_HANDLE),json,(DWORD)n,&written,nullptr);
         return value.nativeBridge?0:3;
     }
@@ -380,8 +390,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                  : pacecar::Config::Load(commandLine.configPath);
 
     const bool shellMode = !commandLine.measure && !commandLine.diagnosticsOnly;
-    // Tests inject a unique instance suffix; skip the HKCU Run sync so they never touch the real
-    // per-user startup entry.
+    // Tests inject a unique instance suffix; skip the real per-user startup backend.
     const bool testMode = !commandLine.instanceSuffix.empty();
     const auto logEvent = [&commandLine](std::wstring_view event) {
         AppendLifecycleLog(commandLine.lifecycleLog, event);
@@ -595,7 +604,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (!testMode)
         {
-            SyncStartWithWindows(config);
+            // The installer/Task Manager owns the existing registration. Reading
+            // a default or old config must not disable that registration at launch.
+            // Writes belong only to the explicit settings callback below.
+            std::wstring startupError;
+            const bool enabled = pacecar::app::IsStartWithWindowsEnabled(nullptr, &startupError);
+            if (startupError.empty())
+                config.general.start_with_windows = enabled;
+            else
+                pacecar::LogWarn(L"startup read: " + startupError);
         }
 
         const auto aboutText = [&overlay, &sampler] {

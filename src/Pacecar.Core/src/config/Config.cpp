@@ -597,7 +597,7 @@ void Config::Clamp()
 
     if (!std::isfinite(general.opacity))
     {
-        general.opacity = 0.65;
+        general.opacity = GeneralConfig{}.opacity;
     }
     general.opacity = std::clamp(general.opacity, 0.1, 1.0);
 

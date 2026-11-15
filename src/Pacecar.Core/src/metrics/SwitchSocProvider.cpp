@@ -1,5 +1,7 @@
 #include "pacecar/metrics/SwitchSocProvider.h"
 #include "pacecar/metrics/SwitchPowerIoctl.h"
+#include "pacecar/metrics/SwitchEmcIoctl.h"
+#include "pacecar/metrics/SwitchBatteryTelemetry.h"
 #include <array>
 #include <utility>
 
@@ -15,17 +17,36 @@ public:
             s.externalPower=battery.ACLineStatus==1;
             s.charging=battery.BatteryFlag!=255 && (battery.BatteryFlag & 8)!=0;
         }
+        HANDLE batteryHandle=CreateFileW(L"\\\\.\\SwitchBattery",GENERIC_READ,
+            FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
+        if (batteryHandle!=INVALID_HANDLE_VALUE) {
+            SWBAT_TELEMETRY_STATUS v{};DWORD returned=0;
+            const BOOL ok=DeviceIoControl(batteryHandle,IOCTL_SWBAT_GET_TELEMETRY,
+                nullptr,0,&v,sizeof(v),&returned,nullptr);
+            s.batteryPowerError=ok ? ERROR_SUCCESS : GetLastError();
+            ApplySwitchBatteryTelemetry(s,v,returned,ok!=FALSE);
+            CloseHandle(batteryHandle);
+        } else s.batteryPowerError=GetLastError();
         HANDLE h=CreateFileW(L"\\\\.\\SwitchBacklight",GENERIC_READ,
             FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
         SWFAN_POWER_STATUS power{};DWORD bytes=0;
         if (h!=INVALID_HANDLE_VALUE) {
             BOOL ok=DeviceIoControl(h,IOCTL_SWFAN_GET_POWER_STATUS,nullptr,0,&power,sizeof(power),&bytes,nullptr);
-            s.error=ok?ERROR_SUCCESS:GetLastError();CloseHandle(h);
+            s.error=ok?ERROR_SUCCESS:GetLastError();
+            SWFAN_EMC_STATUS emc{};DWORD emcBytes=0;
+            const BOOL emcOk=DeviceIoControl(h,IOCTL_SWFAN_GET_EMC_STATUS,nullptr,0,&emc,sizeof(emc),&emcBytes,nullptr);
+            s.ramError=emcOk?ERROR_SUCCESS:GetLastError();
+            CloseHandle(h);
+            if(emcOk && emcBytes>=sizeof(emc) && emc.Version==SWFAN_EMC_STATUS_VERSION) {
+                s.ramSampleAgeMs=emc.SampleAgeMs;
+                if((emc.Flags&SWFAN_EMC_RATE_VALID) && emc.SampleAgeMs<=6000 && emc.ActualKhz) {
+                    s.ramKhz=emc.ActualKhz;s.valid|=SwitchRam;
+                }
+            }
             if (ok && bytes>=19*sizeof(DWORD) && power.IsLite && (power.Version==1 || power.Version==2)) {
                 s.nativeBridge=true;s.cpuKhz=power.CpuActualKhz;s.gpuKhz=power.GpuReportedKhz;
-                s.ramKhz=power.RamActualKhz;s.fanPwm=power.FanDuty;s.cpuMv=power.CpuMv;s.gpuUv=power.GpuReportedUv;
+                s.fanPwm=power.FanDuty;s.cpuMv=power.CpuMv;s.gpuUv=power.GpuReportedUv;
                 if(s.cpuKhz)s.valid|=SwitchCpu;
-                if(s.ramKhz)s.valid|=SwitchRam;
                 if(s.fanPwm<=236)s.valid|=SwitchFan;
                 if(power.Version==2 && bytes>=sizeof(power)) {
                     s.gpuSampleAgeMs=power.GpuSampleAgeMs;
@@ -60,7 +81,8 @@ public:
                 if(value(L"TempBoard",s.boardTempC))s.valid|=SwitchBoardTemp;
                 value(L"CpuMv",s.cpuMv);
             }
-            if(value(L"RamActualKhz",s.ramKhz)&&s.ramKhz)s.valid|=SwitchRam;
+            // Legacy RamActualKhz is the UEFI handoff, not a live sample.
+            // Keep RAM unavailable instead of freezing the bar at that value.
             RegCloseKey(key);
         }
         return s;

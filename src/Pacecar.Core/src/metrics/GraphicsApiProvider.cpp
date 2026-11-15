@@ -53,9 +53,11 @@ HRESULT GraphicsApiProvider::Poll(MetricsSnapshot& snapshot){
     if(!pid||pid==GetCurrentProcessId())return S_OK;
     if(pid!=cachedPid_){dxvkProof_.clear();cachedPid_=pid;}
     GraphicsApiEvidence e;e.zinkScreen=ActiveMesaMarker(pid,2);e.vulkanDevice=ActiveMesaMarker(pid,1);
+    e.tgd3dDevice=ActiveMesaMarker(pid,3);
+    e.modulesKnown=false;
     HANDLE h=CreateToolhelp32Snapshot(TH32CS_SNAPMODULE|TH32CS_SNAPMODULE32,pid);
     if(h!=INVALID_HANDLE_VALUE){MODULEENTRY32W m{};m.dwSize=sizeof(m);
-        if(Module32FirstW(h,&m))do{
+        if(Module32FirstW(h,&m)){do{
             const bool nine=_wcsicmp(m.szModule,L"d3d9.dll")==0;
             const bool ten=_wcsicmp(m.szModule,L"d3d10core.dll")==0||_wcsicmp(m.szModule,L"d3d10.dll")==0;
             const bool eleven=_wcsicmp(m.szModule,L"d3d11.dll")==0;
@@ -66,7 +68,9 @@ HRESULT GraphicsApiProvider::Poll(MetricsSnapshot& snapshot){
             }
             // A separately loaded zink_dri.dll is also an explicit driver identity.
             if(_wcsicmp(m.szModule,L"zink_dri.dll")==0)e.zinkScreen=true;
-        }while(Module32NextW(h,&m));CloseHandle(h);}
+            if(_wcsicmp(m.szModule,L"TegraGpuD3DVk.dll")==0)e.tgd3dModule=true;
+        }while(Module32NextW(h,&m));e.modulesKnown=GetLastError()==ERROR_NO_MORE_FILES;}
+        CloseHandle(h);}
     snapshot.graphicsApi=ClassifyGraphicsApi(e);return S_OK;
 }
 }

@@ -168,6 +168,7 @@ bool SetStartWithWindows(std::wstring_view executablePath, bool enabled, bool st
 
 bool IsStartWithWindowsEnabled(std::wstring* commandOut, std::wstring* error)
 {
+    if (error) error->clear();
     BOOL active = FALSE;
     const HRESULT hr = SwitchStartupTask(kStartupValueName, FALSE, &active);
     if (hr != S_FALSE)
@@ -176,12 +177,27 @@ bool IsStartWithWindowsEnabled(std::wstring* commandOut, std::wstring* error)
         if (FAILED(hr)) SetError(error, L"read login task", static_cast<LSTATUS>(hr));
         return SUCCEEDED(hr) && active;
     }
+    // Distinguish a missing standalone registration from an unreadable key.
+    DWORD size = 0;
+    const LSTATUS status = RegGetValueW(HKEY_CURRENT_USER, kStartupRunKey, kStartupValueName,
+                                       RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ | RRF_NOEXPAND,
+                                       nullptr, nullptr, &size);
+    if (status == ERROR_FILE_NOT_FOUND || status == ERROR_PATH_NOT_FOUND)
+    {
+        if (commandOut) commandOut->clear();
+        return false;
+    }
+    if (status != ERROR_SUCCESS)
+    {
+        SetError(error, L"read Run value", status);
+        return false;
+    }
     std::wstring command;
     if (!ReadStartupValue(kStartupRunKey, kStartupValueName, command))
     {
         if (error != nullptr)
         {
-            *error = L"Run value is not set";
+            *error = L"Run value changed or could not be read";
         }
         return false;
     }

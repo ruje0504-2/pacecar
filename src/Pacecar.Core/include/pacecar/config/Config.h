@@ -182,7 +182,11 @@ struct LayoutConfig
 struct GeneralConfig
 {
     RefreshRate refresh = RefreshRate::Ms1000;
+#ifdef PACECAR_SWITCH
+    double opacity = 0.5;
+#else
     double opacity = 0.65;
+#endif
     Theme theme = Theme::Dark;
     LayoutPreset layout = LayoutPreset::Compact3x3;
     // The active presentation view (cycled at runtime via menu/hotkey). Defaults to the plain

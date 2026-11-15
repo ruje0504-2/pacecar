@@ -28,6 +28,17 @@ int main(){
     assert(ClassifyGraphicsApi({true,false,false,false,false})==1);
     assert(ClassifyGraphicsApi({true,false,true,false,true})==0);
     assert(ClassifyGraphicsApi({true,true,false,false,true})==0);
+    assert(ClassifyGraphicsApi({true,false,false,false,false,true})==0);
+    assert(ClassifyGraphicsApi({false,false,false,false,false,true})==0);
+    assert(ClassifyGraphicsApi({true,true,false,false,false,true})==0);
+    assert(ClassifyGraphicsApi({true,false,true,false,false,true})==0);
+    assert(ClassifyGraphicsApi({true,false,false,false,false,false,false})==0);
+    GraphicsApiEvidence tgd3d{};tgd3d.tgd3dModule=true;tgd3d.tgd3dDevice=true;
+    assert(ClassifyGraphicsApi(tgd3d)==3);
+    tgd3d.vulkanDevice=true;assert(ClassifyGraphicsApi(tgd3d)==0); // simultaneous frontends
+    tgd3d.vulkanDevice=false;tgd3d.dxvk11=true;assert(ClassifyGraphicsApi(tgd3d)==0);
+    tgd3d.dxvk11=false;tgd3d.zinkScreen=true;assert(ClassifyGraphicsApi(tgd3d)==0);
+    tgd3d.zinkScreen=false;tgd3d.modulesKnown=false;assert(ClassifyGraphicsApi(tgd3d)==0);
     util_graphics_api_marker first{},second{};util_graphics_api_marker_open(&first,2);util_graphics_api_marker_open(&second,2);
     assert(first.count&&*first.count==2);util_graphics_api_marker_close(&first);assert(*second.count==1);
     util_graphics_api_marker_close(&second);

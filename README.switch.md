@@ -1,8 +1,26 @@
 # Pacecar Switch / Windows 11 ARM64
 
+## Current monitor update (2026-11-15)
+
+| Field / behavior | Source and status |
+|---|---|
+| CPU / GPU / RAM | Fresh SwitchFan hardware readbacks; RAM uses the cached EMC IOCTL, never the old UEFI clock |
+| Battery power | Battery14 cached MAX17050 current × voltage; positive charging, negative discharge; displayed as battery net watts |
+| Power unavailable | Old driver, invalid calibration, failed read or sample older than6s renders `--`; real zero remains0.0W |
+| Panel background | Default50% opacity (50% transparent), per latest user selection; text is unaffected |
+| Startup | Per-user interactive scheduled task,60s after logon; existing single-instance behavior retained |
+| Native acceptance | Battery14 fresh0xAC/0x7fff gauge sample verified:3.966875V, -57.5mA, -0.228095W. With Fan33 both apps were responding in session1 after boot16:11:46UTC; owner manual testing subsequently passed |
+
+On AC power the battery-power column is not total system or charger input power.
+CPU/GPU wattage has no verified sensor source and is not estimated from clocks.
+The telemetry query reads a cached structure; the overlay does not issue I2C
+transactions per frame. Battery charge limits are controlled independently.
+
+
 Native C++20/Win32/Direct2D port of [binbuf/pacecar](https://github.com/binbuf/pacecar/tree/ab52b8e8ca860535dae6ee639dd7c9858ab6a509).
 The upstream source and attribution are retained. The upstream revision has no
-LICENSE file; this delivery is a local review candidate, not a public release.
+LICENSE file; no broader license is asserted for its code. The Switch changes
+are maintained in [the user fork](https://github.com/ruje0504-2/pacecar).
 
 ## Display and controls
 
@@ -17,7 +35,7 @@ optional per-user start-at-login entry.
 |---|---|
 | CPU MHz | CAR PLLX or DFLL monitor, not Windows' nominal 1.00 GHz |
 | GPU MHz | Fresh KMD GPCCLK sample through SwitchFan power ABI v2 |
-| RAM MHz | Firmware EMC readback; the current port keeps RAM fixed |
+| RAM MHz | Fresh runtime BPMP readback through the cached EMC IOCTL; dynamic clock, stale/error shown as unavailable |
 | Fan PWM | Fan duty percentage; no tachometer/RPM feedback exists |
 | SoC / board temperature | TMP451 remote / local sensor respectively |
 | Battery % | Windows battery driver; charging/external power also indicated |
@@ -32,8 +50,8 @@ idle boundaries; continuous activity can make the sample unavailable. TMP451
 readings expire after six seconds. SoC temperature is not an independently
 measured CPU/GPU junction temperature.
 
-Whole-system watts are omitted: the current Windows drivers do not expose a
-validated input/battery current measurement. Screen refresh rate, PC vendor
+Whole-system watts are omitted: Battery14 exposes validated battery net current,
+but no validated whole-system or AC-input power measurement. Screen refresh rate, PC vendor
 sensor SDKs, NIC/disk/ping sampling, and the PC history/specification pages are
 not exposed in this Switch build. No invented power or FPS value is substituted.
 
@@ -62,19 +80,16 @@ guessing from `vulkan-1.dll`. The marker proves an active backend object, not
 that every draw in a mixed-backend process used that API. Standalone D3D and
 OpenGL labels are intentionally absent.
 
-## Install / remove after main-thread review
+## Installation
 
-Keep `Pacecar.Switch.exe`, `Pacecar.Sensors.exe` and the helper's `arm64` folder
-together. Run the packaged `Install-PacecarSwitch.ps1` as the normal user. It
-copies only this application to `%LOCALAPPDATA%\SwitchWOA\Pacecar` and creates
-`Switch Pacecar.lnk` on the desktop. It does not install drivers, change clocks,
-enable autostart or start a measurement. Launch the desktop shortcut normally.
-The two tray tools are separate: SwitchPowerTray controls modes/charging, while
-Pacecar displays telemetry.
-
-Exit from the tray, then run the same script with `-Remove` to remove this app
-and its desktop/startup entry. Settings in `%APPDATA%\PacecarSwitch\config.json`
-are retained. Driver/firmware rollback belongs to the reviewed DVFS package.
+The reviewed installer places `Pacecar.Switch.exe` in
+`%LOCALAPPDATA%\SwitchWOA\Pacecar` and registers an interactive per-user logon
+task with60-second delay. Switch Power has its own10-second task. The current
+device has no tool desktop shortcuts; `打开硬件工具.cmd` reopens both apps without
+resetting modes or changing autostart. Its source and the shared update installer
+are in [WindowsDrivers](https://github.com/ruje0504-2/Windows-for-Switch-Drivers/tree/hdh001-winarm-bounded-write/app).
+The optional FPS helper remains separate and disabled for this acceptance round.
+Settings live in `%APPDATA%\PacecarSwitch\config.json`.
 
 ## Build
 

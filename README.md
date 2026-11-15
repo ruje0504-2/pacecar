@@ -1,3 +1,5 @@
+> Switch / Windows ARM64 integration: see [README.switch.md](README.switch.md) for live CPU/GPU/RAM telemetry, battery net power and the native tray/monitor.
+
 <div align="center">
 
 # Pacecar

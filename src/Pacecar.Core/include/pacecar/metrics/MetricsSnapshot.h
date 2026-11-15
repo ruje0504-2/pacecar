@@ -164,12 +164,15 @@ struct FanMetrics
 // Valid bits are reset every sample; missing hardware never becomes a fake zero.
 enum SwitchValid : std::uint32_t {
     SwitchCpu=1u, SwitchGpu=2u, SwitchRam=4u, SwitchFan=8u,
-    SwitchSocTemp=16u, SwitchBoardTemp=32u, SwitchBattery=64u
+    SwitchSocTemp=16u, SwitchBoardTemp=32u, SwitchBattery=64u, SwitchBatteryPower=128u
 };
 struct SwitchSocMetrics {
     std::uint32_t valid=0, cpuKhz=0, gpuKhz=0, ramKhz=0, fanPwm=0;
     std::uint32_t cpuMv=0, gpuUv=0, socTempC=0, boardTempC=0;
     std::uint32_t batteryPercent=0, error=0, gpuSampleAgeMs=~0u;
+    std::uint32_t ramError=0, ramSampleAgeMs=~0u;
+    std::uint32_t batteryVoltageUv=0, batterySampleAgeMs=~0u, batteryPowerError=0;
+    std::int32_t batteryCurrentUa=0, batteryPowerUw=0;
     bool externalPower=false, charging=false, nativeBridge=false;
 };
 
@@ -181,7 +184,7 @@ struct MetricsSnapshot
     std::uint64_t tickIndex = 0;
     std::uint64_t timestampMs = 0;
 
-    // 0 unknown, 1 Vulkan, 2 Zink, 9/10/11 DXVK frontend.
+    // 0 unknown, 1 Vulkan, 2 Zink, 3 tgd3d (D3D version unknown), 9/10/11 DXVK frontend.
     std::uint32_t graphicsApi=0, graphicsApiPid=0;
     SwitchSocMetrics soc{};
     CpuMetrics cpu{};

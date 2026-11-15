@@ -591,13 +591,13 @@ void WidgetScene::DrawSwitchMetrics(ID2D1RenderTarget* target, const ResolvedThe
     using namespace pacecar::metrics;
     const D2D1_SIZE_F size=target->GetSize();
     const bool panel=settings_.view==pacecar::ViewMode::SwitchPanel;
-    constexpr unsigned count=9;
-    const unsigned columns=panel?3u:count,rows=panel?3u:1u;
+    constexpr unsigned count=10;
+    const unsigned columns=panel?3u:count,rows=panel?(count+2u)/3u:1u;
     const float cellWidth=(size.width-12.0f)/columns,cellHeight=(size.height-12.0f)/rows;
     const MetricsSnapshot empty{};
     const auto& snap=frame_&&frame_->snapshot?*frame_->snapshot:empty;
     const auto& soc=snap.soc;
-    const wchar_t* labels[count]={L"CPU MHz",L"GPU MHz",L"RAM MHz",L"风扇 PWM",L"SoC 温度",L"主板温度",L"电池",L"应用 FPS",L"图形 API"};
+    const wchar_t* labels[count]={L"CPU MHz",L"GPU MHz",L"RAM MHz",L"风扇 PWM",L"SoC 温度",L"主板温度",L"电池",L"电池功率",L"应用 FPS",L"图形 API"};
     if(soc.externalPower)labels[6]=soc.charging?L"电池 · 充电":L"电池 · 接电";
     wchar_t values[count][48]{};
     for(auto& value:values)wcscpy_s(value,L"--");
@@ -608,12 +608,18 @@ void WidgetScene::DrawSwitchMetrics(ID2D1RenderTarget* target, const ResolvedThe
     if(soc.valid&SwitchSocTemp)_snwprintf_s(values[4],48,_TRUNCATE,L"%u°C",soc.socTempC);
     if(soc.valid&SwitchBoardTemp)_snwprintf_s(values[5],48,_TRUNCATE,L"%u°C",soc.boardTempC);
     if(soc.valid&SwitchBattery)_snwprintf_s(values[6],48,_TRUNCATE,L"%u%%",soc.batteryPercent);
-    if(!Unavailable(snap.frame.status))_snwprintf_s(values[7],48,_TRUNCATE,L"%.1f",snap.frame.fps);
-    else wcscpy_s(values[7],L"未采集");
+    if(soc.valid&SwitchBatteryPower) {
+        const double watts=soc.batteryPowerUw/1000000.0;
+        if(soc.batteryPowerUw>0)_snwprintf_s(values[7],48,_TRUNCATE,L"充 %.1fW",watts);
+        else if(soc.batteryPowerUw<0)_snwprintf_s(values[7],48,_TRUNCATE,L"放 %.1fW",-watts);
+        else wcscpy_s(values[7],L"0.0W");
+    }
+    if(!Unavailable(snap.frame.status))_snwprintf_s(values[8],48,_TRUNCATE,L"%.1f",snap.frame.fps);
+    else wcscpy_s(values[8],L"未采集");
     const wchar_t* api=L"未确认";
-    switch(snap.graphicsApi){case 1:api=L"Vulkan";break;case 2:api=L"Zink";break;
-        case 9:labels[8]=L"DXVK";api=L"(DX9)";break;case 10:labels[8]=L"DXVK";api=L"(DX10)";break;case 11:labels[8]=L"DXVK";api=L"(DX11)";break;}
-    wcscpy_s(values[8],api);
+    switch(snap.graphicsApi){case 1:api=L"Vulkan";break;case 2:api=L"Zink";break;case 3:api=L"tgd3d";break;
+        case 9:labels[9]=L"DXVK";api=L"(DX9)";break;case 10:labels[9]=L"DXVK";api=L"(DX10)";break;case 11:labels[9]=L"DXVK";api=L"(DX11)";break;}
+    wcscpy_s(values[9],api);
     ID2D1SolidColorBrush* labelBrush=statLabelBrush_.Get(target,theme.palette.textDim);
     ID2D1SolidColorBrush* valueBrush=statValueBrush_.Get(target,theme.palette.text);
     if(!labelBrush||!valueBrush)return;

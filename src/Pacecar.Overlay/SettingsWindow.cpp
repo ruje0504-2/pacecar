@@ -961,6 +961,7 @@ void SettingsWindow::PersistStartup()
     if (hooks_.onStartupSettingChanged)
     {
         hooks_.onStartupSettingChanged();
+        RefreshFromConfig();
     }
 }
 

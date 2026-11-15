@@ -45,6 +45,8 @@ std::uint64_t FingerprintSnapshot(const MetricsSnapshot& snapshot) noexcept
     Mix(hash,soc.valid);Mix(hash,soc.cpuKhz);Mix(hash,soc.gpuKhz);Mix(hash,soc.ramKhz);
     Mix(hash,soc.fanPwm);Mix(hash,soc.socTempC);Mix(hash,soc.boardTempC);
     Mix(hash,soc.batteryPercent);Mix(hash,soc.externalPower);Mix(hash,soc.charging);
+    Mix(hash,static_cast<std::uint64_t>(Quantize(soc.batteryPowerUw/1000000.0,0.1)));
+    Mix(hash,soc.batteryPowerUw<0 ? 1u : (soc.batteryPowerUw>0 ? 2u : 0u));
     MixStatus(hash, snapshot.cpu.status);
     Mix(hash, static_cast<std::uint64_t>(Quantize(snapshot.cpu.totalUtilizationPercent, 0.1)));
     Mix(hash, static_cast<std::uint64_t>(Quantize(snapshot.cpu.totalFrequencyMhz, 10.0)));
