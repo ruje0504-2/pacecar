@@ -520,19 +520,34 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     // toggles) without recreating the window.
     overlay.ApplyConfig(config);
 
-    const auto saveConfig = [&config, &commandLine] {
+    std::mutex pendingConfigMutex;
+    pacecar::Config pendingConfig = config;
+    const auto snapshotConfig = [&] {
+        const std::lock_guard<std::mutex> lock(pendingConfigMutex);
+        pendingConfig = config;
+    };
+    const auto savePendingConfig = [&] {
+        const std::lock_guard<std::mutex> lock(pendingConfigMutex);
         if (commandLine.configPath.empty())
         {
-            static_cast<void>(config.Save());
+            static_cast<void>(pendingConfig.Save());
         }
         else
         {
-            static_cast<void>(config.Save(commandLine.configPath));
+            static_cast<void>(pendingConfig.Save(commandLine.configPath));
         }
     };
-    pacecar::DebouncedSaver saver(saveConfig);
+    pacecar::DebouncedSaver saver(savePendingConfig);
+    const auto queueConfigSave = [&] {
+        snapshotConfig();
+        saver.Touch();
+    };
+    const auto saveConfig = [&] {
+        snapshotConfig();
+        savePendingConfig();
+    };
 
-    overlay.SetPositionChangedCallback([&config, &saver](const pacecar::MonitorRect& rect) {
+    overlay.SetPositionChangedCallback([&config, &queueConfigSave](const pacecar::MonitorRect& rect) {
         bool replaced = false;
         for (pacecar::MonitorRect& existing : config.overlay.monitor_rects)
         {
@@ -548,7 +563,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             config.overlay.monitor_rects.push_back(rect);
         }
         config.overlay.monitor_id = rect.monitor_id;
-        saver.Touch();
+        queueConfigSave();
     });
     overlay.SetSessionEndingCallback([&saveConfig] { saveConfig(); });
 
@@ -678,7 +693,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         // fighting the Alt+F11 toggle while already in that view.
         // Live-apply every Settings edit: overlay appearance/behavior, sampler cadence, hotkey
         // re-registration, tray flags, and the debounced config write. No per-keystroke/per-drag
-        // write happens here - `saver.Touch()` only arms the 500 ms debounce.
+        // write happens here. Capture a UI-thread snapshot for the 500 ms debounce.
         const auto applyConfigChanges = [&] {
             const bool enteringFpsView =
                 (config.general.view == pacecar::ViewMode::FpsText ||
@@ -768,7 +783,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             refreshShellFlags();
             applyDeepSensors(config.sensors.deep_sensors);
             applyFrameCapture(config.sensors.fps_capture);
-            saver.Touch();
+            queueConfigSave();
         };
 
         pacecar::overlay::SettingsWindowHooks settingsHooks;

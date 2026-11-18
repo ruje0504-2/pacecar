@@ -300,7 +300,8 @@ struct Config
     // Loads from an explicit path: missing/unreadable/malformed -> defaults (malformed logged).
     [[nodiscard]] static Config Load(const std::filesystem::path& path);
 
-    // Saves to the default path. Creates parent directories and writes atomically. Returns false
+    // Saves to the default path and retains a validated settings file at ".bak" for recovery.
+    // Creates parent directories and commits flushed contents atomically. Returns false
     // (and logs a warning) on failure.
     [[nodiscard]] bool Save() const;
 

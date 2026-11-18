@@ -5,6 +5,7 @@
 #include <cmath>
 #include <fstream>
 #include <iterator>
+#include <mutex>
 #include <span>
 #include <stdexcept>
 #include <system_error>
@@ -677,29 +678,84 @@ Config Config::Load()
     return Load(DefaultPath());
 }
 
+namespace
+{
+bool ReadConfigText(const std::filesystem::path& path, std::string& text)
+{
+    std::ifstream input(path, std::ios::binary);
+    if (!input)
+    {
+        return false;
+    }
+    text.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+    return !input.bad();
+}
+
+std::filesystem::path BackupPath(std::filesystem::path path)
+{
+    path += L".bak";
+    return path;
+}
+
+// Save() serializes writers in this process. Separate processes have distinct staging files.
+bool WriteConfigText(const std::filesystem::path& path, std::string_view text)
+{
+    auto temp = path;
+    temp += L".tmp" + std::to_wstring(::GetCurrentProcessId());
+    const HANDLE file = ::CreateFileW(temp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                                      FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        return false;
+    }
+
+    while (!text.empty())
+    {
+        const auto size = static_cast<DWORD>(std::min<std::size_t>(text.size(), MAXDWORD));
+        DWORD written = 0;
+        if (!::WriteFile(file, text.data(), size, &written, nullptr) || written == 0)
+        {
+            break;
+        }
+        text.remove_prefix(written);
+    }
+    const bool flushed = text.empty() && ::FlushFileBuffers(file);
+    const bool closed = ::CloseHandle(file) != FALSE;
+    if (flushed && closed &&
+        ::MoveFileExW(temp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+    {
+        return true;
+    }
+    ::DeleteFileW(temp.c_str());
+    return false;
+}
+} // namespace
+
 Config Config::Load(const std::filesystem::path& path)
 {
-    std::error_code ec;
-    if (path.empty() || !std::filesystem::exists(path, ec))
+    if (path.empty())
     {
         return Config::Defaults();
     }
 
-    std::ifstream in(path, std::ios::binary);
-    if (!in)
-    {
-        LogWarn(L"config: failed to open file, using defaults");
-        return Config::Defaults();
-    }
-
-    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    std::string text;
     Config config;
-    if (!ConfigFromJsonString(text, config))
+    const bool readPrimary = ReadConfigText(path, text);
+    if (readPrimary && ConfigFromJsonString(text, config))
     {
-        LogWarn(L"config: malformed JSON, using defaults");
-        return Config::Defaults();
+        return config;
     }
-    return config;
+    if (ReadConfigText(BackupPath(path), text) && ConfigFromJsonString(text, config))
+    {
+        LogWarn(L"config: recovered the previous settings");
+        return config;
+    }
+    std::error_code ec;
+    if (readPrimary || std::filesystem::exists(path, ec))
+    {
+        LogWarn(L"config: failed to load settings, using defaults");
+    }
+    return Config::Defaults();
 }
 
 bool Config::Save() const
@@ -727,34 +783,36 @@ bool Config::Save(const std::filesystem::path& path) const
         }
     }
 
-    std::filesystem::path temp = path;
-    temp += L".tmp" + std::to_wstring(::GetCurrentProcessId());
-
+    const std::string text = ConfigToJsonString(*this, 2);
+    static std::mutex writeMutex;
+    const std::lock_guard<std::mutex> lock(writeMutex);
+    std::string original;
+    Config checked;
+    const bool readOriginal = ReadConfigText(path, original);
+    const bool unchanged = readOriginal && original == text;
+    const auto backup = BackupPath(path);
+    std::string previous;
+    const bool readBackup = ReadConfigText(backup, previous);
+    if (!unchanged && readOriginal && ConfigFromJsonString(original, checked))
     {
-        std::ofstream out(temp, std::ios::binary | std::ios::trunc);
-        if (!out)
+        if ((!readBackup || previous != original) && !WriteConfigText(backup, original))
         {
-            LogWarn(L"config: failed to open temp file for writing");
+            LogWarn(L"config: failed to preserve the previous settings");
             return false;
         }
-        const std::string text = ConfigToJsonString(*this, 2);
-        out.write(text.data(), static_cast<std::streamsize>(text.size()));
-        out.flush();
-        if (!out)
+    }
+    else if (!readBackup || !ConfigFromJsonString(previous, checked))
+    {
+        if (!WriteConfigText(backup, text))
         {
-            out.close();
-            std::filesystem::remove(temp, ec);
-            LogWarn(L"config: failed to write temp file");
+            LogWarn(L"config: failed to create a recovery copy");
             return false;
         }
     }
 
-    std::filesystem::rename(temp, path, ec);
-    if (ec)
+    if (!unchanged && !WriteConfigText(path, text))
     {
-        std::error_code cleanupError;
-        std::filesystem::remove(temp, cleanupError);
-        LogWarn(L"config: failed to replace config file");
+        LogWarn(L"config: failed to commit settings to disk");
         return false;
     }
     return true;

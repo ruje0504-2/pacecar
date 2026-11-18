@@ -473,6 +473,50 @@ TEST(ConfigSerialization, ViewAndBackgroundRoundTrip)
     EXPECT_EQ(loaded.hotkeys.toggle_background, "Ctrl+Alt+B");
 }
 
+TEST_F(ConfigFileTest, RecoversUserSettingsFromAZeroFilledOrMissingPrimary)
+{
+    const auto path = dir_ / L"config.json";
+    const auto backup = dir_ / L"config.json.bak";
+    Config first = Config::Defaults();
+    first.general.opacity = 0.37;
+    ASSERT_TRUE(first.Save(path));
+    EXPECT_EQ(ConfigToJsonString(Config::Load(backup)), ConfigToJsonString(first));
+    Config second = first;
+    second.sensors.fps_capture = !first.sensors.fps_capture;
+    ASSERT_TRUE(second.Save(path));
+    ASSERT_EQ(ConfigToJsonString(Config::Load(path)), ConfigToJsonString(second));
+    {
+        std::ofstream damaged(path, std::ios::binary | std::ios::trunc);
+        const std::string zeroes(3058, '\0');
+        damaged.write(zeroes.data(), static_cast<std::streamsize>(zeroes.size()));
+        ASSERT_TRUE(damaged.good());
+    }
+    EXPECT_EQ(ConfigToJsonString(Config::Load(path)), ConfigToJsonString(first));
+    ASSERT_TRUE(second.Save(path));
+    EXPECT_EQ(ConfigToJsonString(Config::Load(backup)), ConfigToJsonString(first));
+    ASSERT_TRUE(std::filesystem::remove(path));
+    EXPECT_EQ(ConfigToJsonString(Config::Load(path)), ConfigToJsonString(first));
+}
+
+TEST_F(ConfigFileTest, UnchangedSaveKeepsThePrimaryAndFailedReplacePreservesIt)
+{
+    const auto path = dir_ / L"config.json";
+    Config original = Config::Defaults();
+    original.general.opacity = 0.42;
+    ASSERT_TRUE(original.Save(path));
+    const HANDLE reader = ::CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    ASSERT_NE(reader, INVALID_HANDLE_VALUE);
+    EXPECT_TRUE(original.Save(path));
+    Config changed = original;
+    changed.general.opacity = 0.72;
+    EXPECT_FALSE(changed.Save(path));
+    ::CloseHandle(reader);
+    EXPECT_EQ(ConfigToJsonString(Config::Load(path)), ConfigToJsonString(original));
+    ASSERT_TRUE(changed.Save(path));
+    EXPECT_EQ(ConfigToJsonString(Config::Load(path)), ConfigToJsonString(changed));
+}
+
 TEST(ConfigSerialization, StatRowsViewAndTextSizeRoundTrip)
 {
     Config config = Config::Defaults();
