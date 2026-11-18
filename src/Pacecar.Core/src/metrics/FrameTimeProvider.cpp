@@ -10,7 +10,6 @@ namespace
 constexpr std::uint16_t kPresentEventKind = 1;
 constexpr std::uint16_t kGdiUpdateKind = 2;
 constexpr std::uint64_t kPresentTimeoutMs = 2000;
-constexpr double kLiveWindowMs = 1000.0;
 
 std::uint64_t SteadyNowMs() noexcept
 {
@@ -133,7 +132,7 @@ HRESULT FrameTimeProvider::Poll(MetricsSnapshot& snapshot)
         lastPresentMs_ = now;
     }
 
-    FrameTimeStats stats = processor_.ComputeRecent(kLiveWindowMs);
+    FrameTimeStats stats = processor_.ComputeRecent(FrameTimeProcessor::kLiveWindowMs);
     snapshot.frame.eventKind = stats.valid ? kind : 0;
     snapshot.frame.lastPresentQpc = stats.lastPresentQpc;
     snapshot.frame.surface = stats.surface;

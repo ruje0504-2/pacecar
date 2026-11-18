@@ -66,21 +66,23 @@ FrameTimeProcessor::FrameTimeProcessor(std::size_t capacity)
     scratch_.reserve(capacity_);
 }
 
+void FrameTimeProcessor::Lane::Reset(std::uint64_t surface) noexcept
+{
+    intervalsMs.clear();
+    cpuMs.clear();
+    gpuMs.clear();
+    swapChain = surface;
+    presents = 0;
+    prevTicks = 0;
+    head = 0;
+    count = 0;
+    havePrevious = false;
+}
+
 void FrameTimeProcessor::ResetLanes() noexcept
 {
-    for (Lane& lane : lanes_)
-    {
-        lane.intervalsMs.clear();
-        lane.cpuMs.clear();
-        lane.gpuMs.clear();
-        lane.swapChain = 0;
-        lane.presents = 0;
-        lane.prevTicks = 0;
-        lane.head = 0;
-        lane.count = 0;
-        lane.havePrevious = false;
-    }
     laneCount_ = 0;
+    latestTicks_ = 0;
 }
 
 void FrameTimeProcessor::Reset() noexcept
@@ -99,22 +101,34 @@ void FrameTimeProcessor::SetClockFrequency(std::uint64_t ticksPerSecond) noexcep
     }
 }
 
-FrameTimeProcessor::Lane* FrameTimeProcessor::FindOrCreateLane(std::uint64_t swapChain) noexcept
+FrameTimeProcessor::Lane* FrameTimeProcessor::FindOrCreateLane(const PresentEvent& event) noexcept
 {
     for (std::size_t i = 0; i < laneCount_; ++i)
     {
-        if (lanes_[i].swapChain == swapChain)
+        if (lanes_[i].swapChain == event.swapChain)
         {
             return &lanes_[i];
         }
     }
-    if (laneCount_ >= kMaxLanes)
+    if (laneCount_ < kMaxLanes)
+    {
+        Lane& lane = lanes_[laneCount_++];
+        lane.Reset(event.swapChain);
+        return &lane;
+    }
+
+    auto oldest = std::min_element(lanes_.begin(), lanes_.end(),
+                                   [](const Lane& a, const Lane& b) {
+                                       return a.prevTicks < b.prevTicks;
+                                   });
+    if (event.qpcTicks <= oldest->prevTicks ||
+        static_cast<double>(event.qpcTicks - oldest->prevTicks) * 1000.0 /
+                static_cast<double>(frequency_) < kLiveWindowMs)
     {
         return nullptr;
     }
-    Lane& lane = lanes_[laneCount_++];
-    lane.swapChain = swapChain;
-    return &lane;
+    oldest->Reset(event.swapChain);
+    return &*oldest;
 }
 
 std::size_t FrameTimeProcessor::ActiveLane() const noexcept
@@ -156,25 +170,30 @@ bool FrameTimeProcessor::AddPresent(const PresentEvent& event) noexcept
         havePid_ = true;
     }
 
-    Lane* lane = FindOrCreateLane(event.swapChain);
-    if (lane == nullptr)
+    latestTicks_ = std::max(latestTicks_, event.qpcTicks);
+    Lane* lane = FindOrCreateLane(event);
+    if (lane == nullptr || (lane->havePrevious && event.qpcTicks <= lane->prevTicks))
     {
         return false;
     }
 
-    const bool haveInterval = lane->havePrevious && event.qpcTicks > lane->prevTicks;
     double intervalMs = 0.0;
-    if (haveInterval)
+    if (lane->havePrevious)
     {
         const std::uint64_t delta = event.qpcTicks - lane->prevTicks;
         intervalMs = static_cast<double>(delta) * 1000.0 / static_cast<double>(frequency_);
+        if (intervalMs > kMaxIntervalMs)
+        {
+            lane->Reset(event.swapChain);
+        }
     }
 
+    const bool haveInterval = lane->havePrevious;
     lane->prevTicks = event.qpcTicks;
     lane->havePrevious = true;
     ++lane->presents;
 
-    if (!haveInterval || intervalMs <= 0.0 || intervalMs > kMaxIntervalMs)
+    if (!haveInterval)
     {
         return false;
     }
@@ -223,18 +242,12 @@ FrameTimeStats FrameTimeProcessor::Compute(std::size_t window) const noexcept
 
 FrameTimeStats FrameTimeProcessor::ComputeRecent(double windowMs) const noexcept
 {
-    std::uint64_t latest = 0;
-    for (std::size_t i = 0; i < laneCount_; ++i)
-    {
-        latest = std::max(latest, lanes_[i].prevTicks);
-    }
-
     const Lane* best = nullptr;
     std::size_t bestCount = 0;
     for (std::size_t i = 0; i < laneCount_; ++i)
     {
         const Lane& lane = lanes_[i];
-        double age = static_cast<double>(latest - lane.prevTicks) * 1000.0 /
+        double age = static_cast<double>(latestTicks_ - lane.prevTicks) * 1000.0 /
                      static_cast<double>(frequency_);
         std::size_t count = 0;
         while (count < lane.count && age < windowMs)

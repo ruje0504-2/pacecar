@@ -209,6 +209,57 @@ TEST(FrameTimeProcessor, HandlesMoreSwapChainsThanTracked)
     EXPECT_EQ(processor.SampleCount(), 1u);
 }
 
+TEST(FrameTimeProcessor, TracksReplacementSurfacesWithinOneProcess)
+{
+    FrameTimeProcessor processor;
+    processor.SetClockFrequency(1000);
+    std::uint64_t tick = 0;
+    for (std::uint64_t surface = 1; surface <= 12; ++surface)
+    {
+        const std::uint64_t interval = surface <= 8 ? 40 : 20;
+        for (int frame = 0; frame < 65; ++frame)
+        {
+            tick += interval;
+            processor.AddPresent({tick, -1, -1, surface, 42});
+        }
+        const auto stats = processor.ComputeRecent(1000);
+        ASSERT_TRUE(stats.valid);
+        EXPECT_EQ(stats.surface, surface);
+        EXPECT_DOUBLE_EQ(stats.frameTimeMs, static_cast<double>(interval));
+    }
+}
+
+TEST(FrameTimeProcessor, LateOrDuplicateEventsPreserveTheLastValidTimestamp)
+{
+    FrameTimeProcessor processor;
+    processor.SetClockFrequency(1000);
+    processor.AddPresent(Present(100));
+    processor.AddPresent(Present(120));
+    EXPECT_FALSE(processor.AddPresent(Present(110)));
+    EXPECT_FALSE(processor.AddPresent(Present(120)));
+    EXPECT_TRUE(processor.AddPresent(Present(140)));
+    const auto stats = processor.ComputeRecent(1000);
+    EXPECT_EQ(stats.sampleCount, 2u);
+    EXPECT_DOUBLE_EQ(stats.frameTimeMs, 20.0);
+}
+
+TEST(FrameTimeProcessor, FirstPresentAfterALongStopStartsAFreshInterval)
+{
+    FrameTimeProcessor processor;
+    processor.SetClockFrequency(1000);
+    for (std::uint64_t t = 0; t <= 1000; t += 20)
+    {
+        processor.AddPresent(Present(t));
+    }
+    ASSERT_EQ(processor.ComputeRecent(1000).fps, 50.0);
+    EXPECT_FALSE(processor.AddPresent(Present(12000)));
+    EXPECT_FALSE(processor.ComputeRecent(1000).valid);
+    EXPECT_TRUE(processor.AddPresent(Present(12040)));
+    const auto stats = processor.ComputeRecent(1000);
+    EXPECT_EQ(stats.sampleCount, 1u);
+    EXPECT_DOUBLE_EQ(stats.fps, 25.0);
+}
+
 TEST(FrameCaptureStatus, MapsConflictAndErrorStates)
 {
     EXPECT_TRUE(FrameCaptureStateIsActive(FrameCaptureState::Capturing));

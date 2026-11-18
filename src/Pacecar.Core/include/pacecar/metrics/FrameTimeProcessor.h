@@ -86,6 +86,7 @@ class FrameTimeProcessor
 {
   public:
     static constexpr std::size_t kDefaultCapacity = 512;
+    static constexpr std::uint64_t kLiveWindowMs = 1000;
     // ETW `EVENT_HEADER.TimeStamp` is in 100 ns units, so the default clock is 10 MHz.
     static constexpr std::uint64_t kDefaultClockFrequency = 10'000'000ull;
 
@@ -106,8 +107,7 @@ class FrameTimeProcessor
 
     // Feeds one present event. Returns true when it produced a valid interval from the previous
     // present of the same swap chain. The first event of a chain (or a PID change, which resets all
-    // chains) establishes the baseline. Events with a non-positive or absurdly large interval are
-    // ignored, as are presents for a chain beyond the tracked limit.
+    // chains) establishes the baseline. A long stop starts a fresh sequence on that chain.
     bool AddPresent(const PresentEvent& event) noexcept;
 
     // Number of intervals retained for the busiest swap chain (the one `Compute` reports).
@@ -119,8 +119,7 @@ class FrameTimeProcessor
     [[nodiscard]] FrameTimeStats ComputeRecent(double windowMs) const noexcept;
 
   private:
-    // Upper bound on simultaneously tracked swap chains; further chains are ignored rather than
-    // growing memory in steady state.
+    // New swap chains can reuse a lane after its last present leaves the live FPS window.
     static constexpr std::size_t kMaxLanes = 8;
 
     struct Lane
@@ -134,9 +133,11 @@ class FrameTimeProcessor
         std::size_t head = 0; // next write slot
         std::size_t count = 0;
         bool havePrevious = false;
+
+        void Reset(std::uint64_t surface) noexcept;
     };
 
-    [[nodiscard]] Lane* FindOrCreateLane(std::uint64_t swapChain) noexcept;
+    [[nodiscard]] Lane* FindOrCreateLane(const PresentEvent& event) noexcept;
     void ResetLanes() noexcept;
     // Index of the lane with the most presents (ties break toward the most samples, then lowest).
     [[nodiscard]] std::size_t ActiveLane() const noexcept;
@@ -147,6 +148,7 @@ class FrameTimeProcessor
 
     std::array<Lane, kMaxLanes> lanes_{};
     std::size_t laneCount_ = 0;
+    std::uint64_t latestTicks_ = 0;
     std::uint32_t currentPid_ = 0;
     bool havePid_ = false;
     mutable std::vector<double> scratch_;

@@ -232,6 +232,60 @@ TEST(FrameTimeProvider, ConflictStateIsExplainedAndNotActive)
     EXPECT_NE(provider.StatusLine().find(L"another ETW session"), std::wstring::npos);
 }
 
+TEST(FrameTimeProvider, FollowsReplacementGdiSurfacesBeforeClearingTheTarget)
+{
+    const std::wstring name = UniquePipeName();
+    PipeServer server(name);
+    ASSERT_TRUE(server.Valid());
+    auto client = std::make_shared<SensorHelperClient>(name);
+    std::uint64_t now = 0;
+    FrameTimeProvider provider(client, [&now] { return now; });
+    constexpr std::uint32_t pid = 104;
+    client->SetCaptureTarget(pid, true);
+    ASSERT_TRUE(client->Pump(now));
+    ASSERT_TRUE(server.Accept());
+    MessageHeader hello{};
+    std::vector<std::uint8_t> payload;
+    ASSERT_TRUE(server.ReadMessage(hello, payload));
+    WriteHelloAck(server);
+
+    MetricsSnapshot snapshot{};
+    std::uint64_t tick = 0;
+    for (std::uint64_t surface = 1; surface <= 12; ++surface)
+    {
+        const auto periodMs = surface <= 8 ? 40u : 20u;
+        constexpr std::size_t frames = 60;
+        auto stats = MakeFrameStats(FrameCaptureState::Capturing, pid, frames);
+        for (std::size_t n = 0; n < frames; ++n)
+        {
+            tick += kFreq * periodMs / 1000;
+            auto& event = stats.events[n];
+            event.pid = pid;
+            event.kind = 2;
+            event.swapChain = surface;
+            event.qpcTicks = tick;
+            event.cpuTicks = event.gpuTicks = -1;
+        }
+        now += periodMs * frames;
+        stats.sequence = surface;
+        stats.timestampMs = now;
+        ASSERT_TRUE(server.WriteMessage(MessageKind::FrameTimeStats, stats, surface + 1, now));
+        ASSERT_EQ(provider.Poll(snapshot), S_OK);
+        EXPECT_EQ(snapshot.frame.targetPid, pid);
+        EXPECT_EQ(snapshot.frame.surface, surface);
+        EXPECT_EQ(snapshot.frame.lastPresentQpc, tick);
+        EXPECT_EQ(snapshot.frame.eventKind, 2u);
+        EXPECT_DOUBLE_EQ(snapshot.frame.fps, 1000.0 / periodMs);
+    }
+    auto ended = MakeFrameStats(FrameCaptureState::NoTarget, 0, 0);
+    ended.sequence = 13;
+    ended.timestampMs = ++now;
+    ASSERT_TRUE(server.WriteMessage(MessageKind::FrameTimeStats, ended, 14, now));
+    EXPECT_EQ(provider.Poll(snapshot), E_FAIL);
+    EXPECT_EQ(snapshot.frame.targetPid, 0u);
+    EXPECT_DOUBLE_EQ(snapshot.frame.fps, 0.0);
+}
+
 TEST(FrameTimeProvider, ClientSendsStartAndStopCaptureCommands)
 {
     const std::wstring name = UniquePipeName();
