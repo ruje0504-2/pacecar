@@ -54,6 +54,8 @@ struct PresentEvent
 
 struct FrameTimeStats
 {
+    std::uint64_t lastPresentQpc = 0;
+    std::uint64_t surface = 0;
     bool valid = false;
     double fps = 0.0;
     double frameTimeMs = 0.0;
@@ -114,6 +116,7 @@ class FrameTimeProcessor
     // Computes stats over the newest `window` intervals of the busiest swap chain (0 means all
     // retained). `valid` is false when there are no samples.
     [[nodiscard]] FrameTimeStats Compute(std::size_t window = 0) const noexcept;
+    [[nodiscard]] FrameTimeStats ComputeRecent(double windowMs) const noexcept;
 
   private:
     // Upper bound on simultaneously tracked swap chains; further chains are ignored rather than
@@ -137,6 +140,7 @@ class FrameTimeProcessor
     void ResetLanes() noexcept;
     // Index of the lane with the most presents (ties break toward the most samples, then lowest).
     [[nodiscard]] std::size_t ActiveLane() const noexcept;
+    [[nodiscard]] FrameTimeStats ComputeLane(const Lane& lane, std::size_t count) const noexcept;
     [[nodiscard]] double IntervalAt(const Lane& lane, std::size_t chronologicalIndex) const noexcept;
     [[nodiscard]] double ValueAt(const Lane& lane, const std::vector<double>& ring,
                                  std::size_t index) const noexcept;

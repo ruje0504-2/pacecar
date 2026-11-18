@@ -45,17 +45,35 @@ bool ApplyEcoQos(HANDLE thread) noexcept
     return SetThreadInformation(thread, ThreadPowerThrottling, &state, sizeof(state)) != FALSE;
 }
 
-// PID owning the current foreground window, or 0 when there is none.
-std::uint32_t ForegroundWindowPid() noexcept
+struct ForegroundTarget {
+    std::uint32_t pid = 0;
+    bool captureFrames = false;
+};
+
+ForegroundTarget QueryForegroundTarget() noexcept
 {
-    const HWND foreground = GetForegroundWindow();
-    if (foreground == nullptr)
-    {
-        return 0;
-    }
+    const HWND window = GetForegroundWindow();
     DWORD pid = 0;
-    static_cast<void>(GetWindowThreadProcessId(foreground, &pid));
-    return pid;
+    if (!window || !GetWindowThreadProcessId(window, &pid) || pid == GetCurrentProcessId())
+    {
+        return {};
+    }
+#ifdef PACECAR_SWITCH
+    const HWND shell = GetShellWindow();
+    DWORD shellPid = 0;
+    if (shell && GetWindowThreadProcessId(shell, &shellPid) && pid == shellPid)
+    {
+        wchar_t name[64]{};
+        GetClassNameW(window, name, ARRAYSIZE(name));
+        if (window == shell || wcscmp(name, L"Progman") == 0 || wcscmp(name, L"WorkerW") == 0 ||
+            wcscmp(name, L"Shell_TrayWnd") == 0 || wcscmp(name, L"Shell_SecondaryTrayWnd") == 0)
+        {
+            // Explorer can own an active graphics device even while game FPS is idle.
+            return {pid, false};
+        }
+    }
+#endif
+    return {pid, true};
 }
 
 // Stops background sampling from raising the platform timer resolution (best-effort).
@@ -177,7 +195,7 @@ void Sampler::BuildProviders(const pacecar::Config& config)
     aggregator_->AddProvider(frameProvider_);
     if (config.sensors.fps_capture)
     {
-        helperClient_->SetCaptureTarget(foregroundPid_.load(std::memory_order_relaxed), true);
+        helperClient_->SetCaptureTarget(frameTargetPid_.load(std::memory_order_relaxed), true);
     }
 
 #ifdef PACECAR_SWITCH
@@ -243,11 +261,8 @@ void Sampler::TickOnce()
     {
         // API identification is read-only and also follows the foreground app
         // when the optional elevated FPS capture is disabled.
-        const std::uint32_t pid = ForegroundWindowPid();
-        if (pid != 0 && pid != GetCurrentProcessId())
-        {
-            SetForegroundPid(pid);
-        }
+        const auto target = QueryForegroundTarget();
+        SetForegroundPid(target.pid, target.captureFrames);
     }
 
     // Unused display frames must release their snapshots before the aggregator
@@ -325,16 +340,18 @@ std::chrono::milliseconds Sampler::Interval() const noexcept
     return std::chrono::milliseconds(static_cast<std::int64_t>(intervalMs_.load()));
 }
 
-void Sampler::SetForegroundPid(std::uint32_t pid) noexcept
+void Sampler::SetForegroundPid(std::uint32_t pid, bool captureFrames) noexcept
 {
-    const std::uint32_t previous = foregroundPid_.exchange(pid, std::memory_order_relaxed);
+    foregroundPid_.store(pid, std::memory_order_relaxed);
+    const auto capturePid = captureFrames ? pid : 0;
+    const auto previousCapturePid = frameTargetPid_.exchange(capturePid, std::memory_order_relaxed);
     if (gpuProvider_)
     {
         gpuProvider_->SetTargetPid(pid);
     }
-    if (helperClient_ && frameCaptureEnabled_.load(std::memory_order_relaxed) && pid != previous)
+    if (helperClient_ && frameCaptureEnabled_.load(std::memory_order_relaxed) && capturePid != previousCapturePid)
     {
-        helperClient_->SetCaptureTarget(pid, true);
+        helperClient_->SetCaptureTarget(capturePid, true);
     }
 }
 
@@ -422,7 +439,7 @@ bool Sampler::SetFrameCaptureEnabled(bool enabled) noexcept
     const bool changed = frameCaptureEnabled_.exchange(enabled) != enabled;
     if (changed && helperClient_)
     {
-        helperClient_->SetCaptureTarget(foregroundPid_.load(std::memory_order_relaxed), enabled);
+        helperClient_->SetCaptureTarget(frameTargetPid_.load(std::memory_order_relaxed), enabled);
     }
     UpdateHelperEnabled();
     return changed;

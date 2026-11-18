@@ -215,16 +215,15 @@ void SensorHelperClient::SetCaptureTarget(std::uint32_t pid, bool enabled)
     captureEnabled_ = enabled;
     capturePid_ = pid;
     capturePending_ = true;
-    if (!enabled)
-    {
-        frameState_ = FrameCaptureState::NotCapturing;
-        frameTargetPid_ = 0;
-        frameQpcFrequency_ = 0;
-        frameEventsLost_ = 0;
-        frameQueueDrops_ = 0;
-        frameEvents_.clear();
-        haveFrameData_ = false;
-    }
+    frameState_ = enabled && pid == 0 ? FrameCaptureState::NoTarget
+                                      : FrameCaptureState::NotCapturing;
+    frameTargetPid_ = 0;
+    frameQpcFrequency_ = 0;
+    frameTimestampMs_ = 0;
+    frameEventsLost_ = 0;
+    frameQueueDrops_ = 0;
+    frameEvents_.clear();
+    haveFrameData_ = false;
 }
 
 FrameCaptureState SensorHelperClient::CaptureState() const noexcept
@@ -475,6 +474,15 @@ bool SensorHelperClient::HandleMessage(const ipc::DecodedMessage& message)
         if (!ipc::DecodePayload(message, payload))
         {
             return true; // Wrong-sized frame-time payload: ignore rather than trust it.
+        }
+        const bool capturing =
+            payload.captureState == static_cast<std::uint32_t>(FrameCaptureState::Capturing);
+        // The helper can finish sending a batch after the UI changes foreground windows.
+        // Startup errors have no active PID and still belong in the capture status.
+        if (!captureEnabled_ || (capturing && payload.targetPid == 0) ||
+            (payload.targetPid != 0 && payload.targetPid != capturePid_))
+        {
+            return true;
         }
         std::size_t count = payload.eventCount;
         if (count > ipc::kMaxFrameEvents)

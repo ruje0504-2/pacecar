@@ -9,6 +9,11 @@ int main(){
  auto s=p.Compute();assert(s.valid&&std::abs(s.fps-60)<0.001&&s.sampleCount==60);
  p.AddPresent({62000,-1,-1,7,456});assert(!p.Compute().valid);
  p.AddPresent({64000,-1,-1,7,456});s=p.Compute();assert(std::abs(s.fps-30)<0.001);
+ // A retired busy chain must not hide a new cap on the live chain.
+ for(unsigned i=0;i<180;++i)p.AddPresent({65000ull+1000ull*i,-1,-1,7,456});
+ for(unsigned i=0;i<16;++i)p.AddPresent({250000ull+7500ull*i,-1,-1,9,456});
+ auto recent=p.ComputeRecent(1000.0);
+ assert(recent.valid && std::abs(recent.fps-8.0)<0.001 && recent.sampleCount==8);
  assert(!FrameCaptureStateIsActive(FrameCaptureState::AccessDenied));
  puts("PASS: synthetic 60/30 Hz Present intervals, PID reset, unknown-before-first-frame and denied-capture state (not GPU acceptance)");
 }

@@ -60,6 +60,10 @@ class FrameTimeProvider final : public IMetricProvider
     Clock clock_;
     FrameTimeProcessor processor_;
     std::vector<ipc::FrameEventPayload> eventScratch_;
+    std::uint32_t sampledPid_ = 0;
+    std::uint16_t sampledKind_ = 0;
+    std::uint64_t lastPresentMs_ = 0;
+    bool havePresent_ = false;
     // Tracks capture-health counters across polls so a helper restart (counters falling) does not
     // latch the degraded flag forever.
     void UpdateHealth(std::uint64_t eventsLost, std::uint64_t queueDrops) noexcept;

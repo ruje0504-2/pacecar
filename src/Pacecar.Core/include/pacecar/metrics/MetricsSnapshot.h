@@ -133,6 +133,10 @@ struct PingMetrics
 struct FrameMetrics
 {
     MetricStatus status{};
+    std::uint32_t targetPid = 0;
+    std::uint16_t eventKind = 0;
+    std::uint64_t lastPresentQpc = 0;
+    std::uint64_t surface = 0;
     double fps = 0.0;
     double frameTimeMs = 0.0;
     double cpuTimeMs = 0.0;

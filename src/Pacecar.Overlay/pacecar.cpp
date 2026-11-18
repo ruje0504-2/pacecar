@@ -43,6 +43,9 @@
 
 #include <shellapi.h>
 #include <objbase.h>
+#ifdef PACECAR_SWITCH
+#include <evntprov.h>
+#endif
 
 #include "Diagnostics.h"
 #include "Hdr.h"
@@ -75,6 +78,47 @@ constexpr UINT_PTR kMeasureTimerId = 1;
 constexpr UINT_PTR kExitTimerId = 2;
 
 HWND g_signalWindow = nullptr;
+
+#ifdef PACECAR_SWITCH
+// Event 1 exposes the exact frame sample consumed by the UI to a local ETW capture.
+constexpr GUID kFrameSampleProvider = {0x959371b0,0xcafe,0x45fc,{0xa7,0x26,0x6c,0x0c,0x4f,0x91,0xfc,0x2a}};
+constexpr EVENT_DESCRIPTOR kFrameSampleEvent{1, 2, 0, 4, 0, 0, 1};
+
+// Event 2 reports the API and process identifiers from the same widget snapshot.
+constexpr EVENT_DESCRIPTOR kGraphicsApiSampleEvent{2, 1, 0, 4, 0, 0, 1};
+
+void TraceWidgetSample(REGHANDLE provider, const pacecar::metrics::MetricsSnapshot& snapshot)
+{
+    if (!provider)
+        return;
+
+    const auto& frame = snapshot.frame;
+    if (EventEnabled(provider, &kGraphicsApiSampleEvent))
+    {
+        const std::uint32_t apiSample[]{snapshot.graphicsApiPid, snapshot.graphicsApi, frame.targetPid};
+        EVENT_DATA_DESCRIPTOR data{};
+        EventDataDescCreate(&data, apiSample, sizeof(apiSample));
+        EventWrite(provider, &kGraphicsApiSampleEvent, 1, &data);
+    }
+
+    if (!EventEnabled(provider, &kFrameSampleEvent))
+        return;
+    struct Sample {
+        std::uint32_t pid;
+        std::uint16_t kind, state;
+        std::uint32_t available, stale;
+        double fps, frameMs;
+        std::uint64_t tick, lastPresentQpc, surface;
+    };
+    static_assert(sizeof(Sample) == 56);
+    const Sample sample{frame.targetPid, frame.eventKind, static_cast<std::uint16_t>(frame.captureState),
+                        frame.status.available, frame.status.stale, frame.fps, frame.frameTimeMs,
+                        snapshot.tickIndex, frame.lastPresentQpc, frame.surface};
+    EVENT_DATA_DESCRIPTOR data{};
+    EventDataDescCreate(&data, &sample, sizeof(sample));
+    EventWrite(provider, &kFrameSampleEvent, 1, &data);
+}
+#endif
 
 BOOL WINAPI SaveAndQuitHandler(DWORD ctrlType)
 {
@@ -530,7 +574,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     pacecar::overlay::SpecsWindow specsWindow;
     pacecar::overlay::HistoryWindow historyWindow;
 
-    const auto refreshShellFlags = [&overlay, &tray, &config, trayCreated] {
+    const auto refreshShellFlags = [&overlay, &tray, &config, &trayCreated] {
         if (trayCreated)
         {
             tray.SetVisibleFlag(overlay.IsVisible());
@@ -593,6 +637,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         }
     };
 
+    // Settings, tray commands and hotkeys share this state throughout the message loop.
+    pacecar::ViewMode appliedView = config.general.view;
     if (shellMode)
     {
         static_cast<void>(singleInstance.CreateActivationWindow(
@@ -630,8 +676,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         // Tracks the view last pushed to the overlay so entering an FPS view (which is an explicit
         // opt-in) arms capture exactly once, without re-arming on unrelated settings edits or
         // fighting the Alt+F11 toggle while already in that view.
-        pacecar::ViewMode appliedView = config.general.view;
-
         // Live-apply every Settings edit: overlay appearance/behavior, sampler cadence, hotkey
         // re-registration, tray flags, and the debounced config write. No per-keystroke/per-drag
         // write happens here - `saver.Touch()` only arms the 500 ms debounce.
@@ -745,7 +789,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             return sampler.LatestSnapshot();
         };
 
-        const auto handleCommand = [&](pacecar::overlay::OverlayCommand command) {
+        const auto handleCommand = [&, applyConfigChanges, settingsHooks, historyAccess,
+                                    snapshotAccess](pacecar::overlay::OverlayCommand command) {
             switch (command)
             {
             case pacecar::overlay::OverlayCommand::ToggleVisibility:
@@ -844,7 +889,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         if (!commandLine.noHotkey)
         {
             hotkeys.Attach(overlay.Hwnd());
-            hotkeys.SetCallback([&](int hotkeyId) {
+            hotkeys.SetCallback([&overlay, &refreshShellFlags, handleCommand](int hotkeyId) {
                 if (hotkeyId == pacecar::overlay::HotkeyManager::kToggleOverlayId)
                 {
                     overlay.ToggleVisibility();
@@ -1043,11 +1088,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                               .count());
     };
 
+#ifdef PACECAR_SWITCH
+    REGHANDLE frameSampleProvider{};
+    EventRegister(&kFrameSampleProvider, nullptr, nullptr, &frameSampleProvider);
+#endif
     const auto applyFrame = [&](std::shared_ptr<const pacecar::metrics::DisplayFrame> frame) {
         if (!frame)
         {
             return;
         }
+#ifdef PACECAR_SWITCH
+        if (frame->snapshot)
+            TraceWidgetSample(frameSampleProvider, *frame->snapshot);
+#endif
         if (renderGate.ShouldRepaintFingerprint(frame->fingerprint, elapsedMs()))
         {
             if (frame->snapshot)
@@ -1070,6 +1123,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         auto loaded = std::make_shared<pacecar::metrics::MetricsSnapshot>();
         if (pacecar::metrics::LoadSnapshotCache(pacecar::metrics::SnapshotCachePath(), *loaded))
         {
+            loaded->frame = {};
             std::lock_guard<std::mutex> lock(cacheMutex);
             cachedSnapshot = std::move(loaded);
         }
@@ -1181,6 +1235,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         logEvent(L"shutdown");
     }
 
+#ifdef PACECAR_SWITCH
+    if (frameSampleProvider)
+        EventUnregister(frameSampleProvider);
+#endif
     const pacecar::TimerResolution timerEnd = pacecar::QueryTimerResolution();
     const bool timerUnchanged = pacecar::SameTimerResolution(timerStart, timerEnd);
 

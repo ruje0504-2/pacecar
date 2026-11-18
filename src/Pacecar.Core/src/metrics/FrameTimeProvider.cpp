@@ -1,5 +1,6 @@
 #include "pacecar/metrics/FrameTimeProvider.h"
 
+#include <algorithm>
 #include <cstdio>
 
 namespace pacecar::metrics
@@ -7,6 +8,9 @@ namespace pacecar::metrics
 namespace
 {
 constexpr std::uint16_t kPresentEventKind = 1;
+constexpr std::uint16_t kGdiUpdateKind = 2;
+constexpr std::uint64_t kPresentTimeoutMs = 2000;
+constexpr double kLiveWindowMs = 1000.0;
 
 std::uint64_t SteadyNowMs() noexcept
 {
@@ -55,7 +59,8 @@ HRESULT FrameTimeProvider::Poll(MetricsSnapshot& snapshot)
         return E_FAIL;
     }
 
-    static_cast<void>(client_->Pump(clock_()));
+    const auto now = clock_();
+    static_cast<void>(client_->Pump(now));
 
     FrameCaptureState state = FrameCaptureState::NotCapturing;
     std::uint32_t targetPid = 0;
@@ -66,27 +71,54 @@ HRESULT FrameTimeProvider::Poll(MetricsSnapshot& snapshot)
     client_->TakeFrameData(eventScratch_, state, targetPid, qpcFrequency, timestampMs, eventsLost,
                            queueDrops);
 
+    const bool active = state == FrameCaptureState::Capturing && targetPid != 0;
+    if (!active || targetPid != sampledPid_)
+    {
+        processor_.Reset();
+        havePresent_ = false;
+        sampledKind_ = 0;
+        std::lock_guard<std::mutex> lock(mutex_);
+        degraded_ = false;
+        healthObserved_ = false;
+    }
+    sampledPid_ = targetPid;
+    snapshot.frame.captureState = static_cast<std::uint32_t>(state);
+    snapshot.frame.targetPid = active ? targetPid : 0;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         state_ = state;
     }
-    // Publish the state even when no FPS is available so the UI can explain the gap.
-    snapshot.frame.captureState = static_cast<std::uint32_t>(state);
 
-    if (state != FrameCaptureState::Capturing)
+    if (active)
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        degraded_ = false;
-        healthObserved_ = false;
-        return E_FAIL;
+        UpdateHealth(eventsLost, queueDrops);
     }
 
-    UpdateHealth(eventsLost, queueDrops);
-
+    const auto containsKind = [&](std::uint16_t kind) {
+        return std::any_of(eventScratch_.begin(), eventScratch_.end(),
+                           [&](const auto& e) { return e.pid == targetPid && e.kind == kind; });
+    };
+    const bool expired = havePresent_ && now >= lastPresentMs_ &&
+                         now - lastPresentMs_ > kPresentTimeoutMs;
+    std::uint16_t kind = sampledKind_;
+    if (active && containsKind(kPresentEventKind))
+    {
+        kind = kPresentEventKind;
+    }
+    else if (active && (sampledKind_ != kPresentEventKind || expired) && containsKind(kGdiUpdateKind))
+    {
+        kind = kGdiUpdateKind;
+    }
+    if (kind != sampledKind_ || (expired && !containsKind(kind)))
+    {
+        processor_.Reset();
+        havePresent_ = false;
+    }
+    sampledKind_ = kind;
     processor_.SetClockFrequency(qpcFrequency);
     for (const ipc::FrameEventPayload& event : eventScratch_)
     {
-        if (event.kind != kPresentEventKind)
+        if (!active || kind == 0 || event.kind != kind || event.pid != targetPid)
         {
             continue;
         }
@@ -97,12 +129,23 @@ HRESULT FrameTimeProvider::Poll(MetricsSnapshot& snapshot)
         present.swapChain = event.swapChain;
         present.pid = event.pid;
         static_cast<void>(processor_.AddPresent(present));
+        havePresent_ = true;
+        lastPresentMs_ = now;
     }
 
-    FrameTimeStats stats = processor_.Compute();
+    FrameTimeStats stats = processor_.ComputeRecent(kLiveWindowMs);
+    snapshot.frame.eventKind = stats.valid ? kind : 0;
+    snapshot.frame.lastPresentQpc = stats.lastPresentQpc;
+    snapshot.frame.surface = stats.surface;
     if (!stats.valid)
     {
-        // Connected and capturing, but no interval has been measured yet (one present only).
+        snapshot.frame.fps = 0;
+        snapshot.frame.frameTimeMs = 0;
+        snapshot.frame.cpuTimeMs = 0;
+        snapshot.frame.gpuTimeMs = 0;
+        std::lock_guard<std::mutex> lock(mutex_);
+        lastFps_ = 0;
+        snapshot.frame.degraded = degraded_;
         return E_FAIL;
     }
 
@@ -154,6 +197,9 @@ bool FrameTimeProvider::Degraded() const noexcept
 void FrameTimeProvider::Reset() noexcept
 {
     processor_.Reset();
+    sampledPid_ = 0;
+    sampledKind_ = 0;
+    havePresent_ = false;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         state_ = FrameCaptureState::NotCapturing;

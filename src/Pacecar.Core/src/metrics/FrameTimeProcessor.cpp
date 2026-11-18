@@ -212,14 +212,49 @@ std::size_t FrameTimeProcessor::SampleCount() const noexcept
 
 FrameTimeStats FrameTimeProcessor::Compute(std::size_t window) const noexcept
 {
-    FrameTimeStats stats{};
     if (laneCount_ == 0)
     {
-        return stats;
+        return {};
     }
 
     const Lane& lane = lanes_[ActiveLane()];
-    const std::size_t n = window == 0 ? lane.count : std::min(window, lane.count);
+    return ComputeLane(lane, window == 0 ? lane.count : std::min(window, lane.count));
+}
+
+FrameTimeStats FrameTimeProcessor::ComputeRecent(double windowMs) const noexcept
+{
+    std::uint64_t latest = 0;
+    for (std::size_t i = 0; i < laneCount_; ++i)
+    {
+        latest = std::max(latest, lanes_[i].prevTicks);
+    }
+
+    const Lane* best = nullptr;
+    std::size_t bestCount = 0;
+    for (std::size_t i = 0; i < laneCount_; ++i)
+    {
+        const Lane& lane = lanes_[i];
+        double age = static_cast<double>(latest - lane.prevTicks) * 1000.0 /
+                     static_cast<double>(frequency_);
+        std::size_t count = 0;
+        while (count < lane.count && age < windowMs)
+        {
+            age += IntervalAt(lane, lane.count - count - 1);
+            ++count;
+        }
+        if (count > bestCount ||
+            (count == bestCount && best && lane.prevTicks > best->prevTicks))
+        {
+            best = &lane;
+            bestCount = count;
+        }
+    }
+    return best ? ComputeLane(*best, bestCount) : FrameTimeStats{};
+}
+
+FrameTimeStats FrameTimeProcessor::ComputeLane(const Lane& lane, std::size_t n) const noexcept
+{
+    FrameTimeStats stats{};
     if (n == 0)
     {
         return stats;
@@ -257,6 +292,8 @@ FrameTimeStats FrameTimeProcessor::Compute(std::size_t window) const noexcept
 
     std::sort(scratch_.begin(), scratch_.end());
 
+    stats.lastPresentQpc = lane.prevTicks;
+    stats.surface = lane.swapChain;
     stats.valid = meanMs > 0.0;
     stats.sampleCount = n;
     stats.frameTimeMs = meanMs;

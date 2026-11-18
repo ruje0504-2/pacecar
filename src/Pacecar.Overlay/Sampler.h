@@ -60,7 +60,7 @@ class Sampler
     [[nodiscard]] bool Visible() const noexcept;
     void SetInterval(std::chrono::milliseconds interval) noexcept;
     [[nodiscard]] std::chrono::milliseconds Interval() const noexcept;
-    void SetForegroundPid(std::uint32_t pid) noexcept;
+    void SetForegroundPid(std::uint32_t pid, bool captureFrames = true) noexcept;
 
     [[nodiscard]] std::shared_ptr<const pacecar::metrics::DisplayFrame> LatestFrame() const noexcept;
 
@@ -128,6 +128,7 @@ class Sampler
 
     HWND wakeWindow_ = nullptr;
     std::atomic<std::uint32_t> foregroundPid_{0};
+    std::atomic<std::uint32_t> frameTargetPid_{0};
 
     std::vector<std::shared_ptr<pacecar::metrics::DisplayFrame>> framePool_;
     mutable std::mutex frameMutex_;

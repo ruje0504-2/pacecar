@@ -37,6 +37,7 @@ internal static class IpcProtocol
     public const int FrameCaptureCommandPayloadSize = 8;
 
     public const int FrameEventKindPresent = 1;
+    public const int FrameEventKindGdiUpdate = 2;
 
     // Matches `pacecar::metrics::FrameCaptureState`.
     public const uint CaptureStateNotCapturing = 0;

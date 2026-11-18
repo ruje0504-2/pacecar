@@ -37,6 +37,7 @@ internal sealed class EtwFrameTime : IDisposable
     // provider and manifest version.
 #if PACECAR_SWITCH
     private const string SessionName = "Pacecar.Switch.FrameTime";
+    private readonly byte[] _gdiToken = new byte[SwitchPresentSelector.GdiPayloadSize];
 #else
     private const string SessionName = "Pacecar.FrameTime";
 #endif
@@ -130,9 +131,16 @@ internal sealed class EtwFrameTime : IDisposable
                 StopOnDispose = true,
             };
 #if PACECAR_SWITCH
-            // One canonical kernel Present stream for every frontend: no
-            // double-counting runtime+kernel events or confusing DWM with the target.
-            session.EnableProvider(DxgKrnlProvider, TraceEventLevel.Informational, 0x4000000008000001UL);
+            var kernelFilter = new TraceEventProviderOptions {
+                EventIDsToEnable = new[] { SwitchPresentSelector.KernelPresent }
+            };
+            var gdiFilter = new TraceEventProviderOptions {
+                EventIDsToEnable = new[] { SwitchPresentSelector.GdiSysMemToken }
+            };
+            session.EnableProvider(DxgKrnlProvider, TraceEventLevel.Informational,
+                                   0x08000001UL, kernelFilter);
+            session.EnableProvider(SwitchPresentSelector.Win32k, TraceEventLevel.Informational,
+                                   0x1000UL, gdiFilter);
 #else
             session.EnableProvider(DxgiProvider, TraceEventLevel.Verbose);
             session.EnableProvider(D3d9Provider, TraceEventLevel.Verbose);
@@ -140,7 +148,7 @@ internal sealed class EtwFrameTime : IDisposable
             session.EnableProvider(DwmProvider, TraceEventLevel.Informational);
 #endif
             session.Source.AllEvents += data => OnEvent(data, pid);
-            Log("[fps] session opened; DXGI/D3D9/DxgKrnl/DWM providers enabled");
+            Log("[fps] presentation providers enabled");
 
             _session = session;
             TargetPid = pid;
@@ -210,6 +218,26 @@ internal sealed class EtwFrameTime : IDisposable
 
     public void Dispose() => Stop();
 
+#if PACECAR_SWITCH
+    // A low-FPS game can leave its last presents in a mostly empty ETW buffer.
+    // Flush at the existing pipe cadence so a cap change reaches the live readout.
+    public void FlushFrameBuffers()
+    {
+        var session = _session;
+        if (session == null || State != IpcProtocol.CaptureStateCapturing)
+            return;
+        try
+        {
+            session.Flush();
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or System.ComponentModel.Win32Exception
+                                   or System.Runtime.InteropServices.COMException)
+        {
+            // The control thread can stop a session concurrently with a pipe update.
+        }
+    }
+#endif
+
     private void OnEvent(TraceEvent data, uint pid)
     {
         var seen = Interlocked.Increment(ref _eventsSeen);
@@ -226,16 +254,31 @@ internal sealed class EtwFrameTime : IDisposable
 
         var guid = data.ProviderGuid;
         var id = (int)data.ID;
+        ushort kind = IpcProtocol.FrameEventKindPresent;
+        ulong swapChain;
 #if PACECAR_SWITCH
-        var isPresent = SwitchPresentSelector.Accept(guid, id);
+        if (guid == SwitchPresentSelector.Win32k && id == SwitchPresentSelector.GdiSysMemToken)
+        {
+            if (data.EventDataLength != _gdiToken.Length)
+                return;
+            data.EventData(_gdiToken, 0, 0, _gdiToken.Length);
+            if (!SwitchPresentSelector.TryGetSurface(data.Version, _gdiToken, out swapChain))
+                return;
+            kind = IpcProtocol.FrameEventKindGdiUpdate;
+        }
+        else if (SwitchPresentSelector.Accept(guid, id))
+            TryReadSwapChain(data, out swapChain);
+        else
+            return;
 #else
         var isPresent = (guid == DxgiProvider && id == DxgiPresentStartId) ||
                         (guid == D3d9Provider && id == D3d9PresentStartId);
-#endif
         if (!isPresent)
         {
             return;
         }
+        TryReadSwapChain(data, out swapChain);
+#endif
 
         var presents = Interlocked.Increment(ref _presentsSeen);
         if (presents <= 3 || presents % 1000 == 0)
@@ -260,10 +303,7 @@ internal sealed class EtwFrameTime : IDisposable
         }
         var qpcTicks = (ulong)Math.Max(0L, qpc);
 
-        TryReadSwapChain(data, out var swapChain);
-
-        var frameEvent = new IpcProtocol.FrameEvent(qpcTicks, -1, -1, swapChain, pid,
-                                                    IpcProtocol.FrameEventKindPresent);
+        var frameEvent = new IpcProtocol.FrameEvent(qpcTicks, -1, -1, swapChain, pid, kind);
         lock (_lock)
         {
             if (_pending.Count >= MaxQueuedEvents)

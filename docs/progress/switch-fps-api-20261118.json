@@ -1,0 +1,135 @@
+{
+  "platform": "Nintendo Switch Lite, Windows ARM64",
+  "date_utc": "2026-11-18",
+  "installed_components_sha256": {
+    "Pacecar.Switch.exe": "0bb94b678ac1778db3ffc24c2ad131dd2b8f7306d9917b8644a9bd15a70db8eb",
+    "Pacecar.Sensors.exe": "73cddb34770b20efdbf518ac2108b50f529adc0d3f03b46a130586bf9befb245"
+  },
+  "signed_ui_observed_after_windows_restart": true,
+  "installed_ui_instances": 1,
+  "desktop_widget": {
+    "foreground_window_class": "Progman",
+    "fps_capture_enabled_during_sample": true,
+    "original_fps_capture_enabled": false,
+    "original_preference_restored": true,
+    "readout_source": "Installed overlay ETW event 2 version 1 alongside frame sample event 1 version 2",
+    "seconds_from_confirmed_desktop_focus_to_first_tgd3d_sample": 1.285,
+    "samples": [
+      {
+        "seconds": 0.146,
+        "api_target": "previous foreground process",
+        "api_id": 0,
+        "fps_target_pid": 0
+      },
+      {
+        "seconds": 1.285,
+        "api_target": "desktop shell",
+        "api_id": 3,
+        "fps_target_pid": 0
+      },
+      {
+        "seconds": 2.377,
+        "api_target": "desktop shell",
+        "api_id": 3,
+        "fps_target_pid": 0
+      },
+      {
+        "seconds": 3.426,
+        "api_target": "desktop shell",
+        "api_id": 3,
+        "fps_target_pid": 0
+      },
+      {
+        "seconds": 4.447,
+        "api_target": "desktop shell",
+        "api_id": 3,
+        "fps_target_pid": 0
+      },
+      {
+        "seconds": 5.536,
+        "api_target": "desktop shell",
+        "api_id": 3,
+        "fps_target_pid": 0
+      },
+      {
+        "seconds": 6.56,
+        "api_target": "desktop shell",
+        "api_id": 3,
+        "fps_target_pid": 0
+      },
+      {
+        "seconds": 7.69,
+        "api_target": "desktop shell",
+        "api_id": 3,
+        "fps_target_pid": 0
+      }
+    ],
+    "consecutive_tgd3d_samples": 7,
+    "available_fps_samples": 0,
+    "frame_samples": 8,
+    "csv_sha256": "90cc25130ffd3edab9d0a4eb6013a7987ccc032db2562825336ae48ff7ba7c79",
+    "etl_sha256": "ea74c96a10b41721208e2069509dbcfae7643dcd11fe9ea1d47d36ceb42cd062"
+  },
+  "independent_compositor_observation": {
+    "source": "tgd3d UMD timing event 30, kind 2, S_OK in dwm.exe",
+    "successful_presents": 23,
+    "span_seconds": 8.097,
+    "active_tgd3d_devices": 1
+  },
+  "native_controls": {
+    "suite": "FrameTimeProvider",
+    "tests_passed": 5,
+    "log_sha256": "c79bc152719fcac1e888f449558452473099f8bede71d016d0f1060a53ec6e25"
+  },
+  "earlier_installed_game_measurement": {
+    "components_sha256": {
+      "Pacecar.Switch.exe": "5f3300a1765cced673bd7fb489773cfc3fdba8307a448e141749c8cdf21ba14b",
+      "Pacecar.Sensors.exe": "79eb41e79c8b62df6e4df86d7dae6d86547697a77a8164ba846e2558a6a90c10"
+    },
+    "game": "FTEQW x64 with ARM64EC DXVK D3D9",
+    "map": "LibreQuake lq_e0m1",
+    "resolution": [
+      640,
+      360
+    ],
+    "device": "NVK GM20B",
+    "win32k_gdi_update_tokens": 301,
+    "target_window_compositor_updates": 301,
+    "game_exit_code": 0,
+    "frame_intervals": {
+      "cap15-interval": {
+        "gdi_update_fps": 10.814,
+        "window_compositor_fps": 10.834,
+        "last_widget_readouts_fps": [
+          10.23352,
+          10.40641
+        ]
+      },
+      "cap8-interval": {
+        "gdi_update_fps": 8.195,
+        "window_compositor_fps": 8.182,
+        "last_widget_readouts_fps": [
+          8.18107,
+          7.87968
+        ]
+      },
+      "hitch-interval": {
+        "gdi_update_fps": 2.02,
+        "window_compositor_fps": 2.001,
+        "last_widget_readouts_fps": [
+          8.1817,
+          7.9509
+        ]
+      },
+      "recovery-interval": {
+        "gdi_update_fps": 1.847,
+        "window_compositor_fps": 1.852,
+        "last_widget_readouts_fps": [
+          1.98622,
+          1.986
+        ]
+      }
+    },
+    "transition_observation": "The earlier widget lagged the step down to 2 FPS. The current helper flushes ETW buffers at its pipe reporting interval. The desktop run measures target selection."
+  }
+}

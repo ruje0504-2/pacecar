@@ -39,8 +39,8 @@ optional per-user start-at-login entry.
 | Fan PWM | Fan duty percentage; no tachometer/RPM feedback exists |
 | SoC / board temperature | TMP451 remote / local sensor respectively |
 | Battery % | Windows battery driver; charging/external power also indicated |
-| Application FPS | Target process's kernel Present submission cadence |
-| Graphics API | DXVK(DX9), DXVK(DX10), DXVK(DX11), Vulkan or Zink |
+| Application FPS | Foreground process's kernel Presents or redirected GDI surface updates |
+| Graphics API | tgd3d, Vulkan, Zink, DXVK(DX9), DXVK(DX10) or DXVK(DX11) |
 
 Missing/stale sensor values show `--`. Old SwitchFan 13 supports only fresh
 registry CPU/PWM/temperature data and static firmware EMC data. Its boot GPU
@@ -63,14 +63,23 @@ the corresponding privileges. Rejecting UAC leaves FPS unavailable and does
 not affect SoC telemetry. The helper does not contain LibreHardwareMonitor or
 PawnIO and is not installed as a service.
 
-Only `Microsoft-Windows-DxgKrnl` `Present_Info` (event 184) is counted, filtered
-to the foreground process. DXGI/runtime/flip events are not counted a second
-time. These are submitted Presents, not proof of displayed frames or panel
-refresh. A path that does not emit this event stays unavailable. Actual NVK,
-DXVK and Zink ETW coverage still needs Windows validation.
+The helper filters events by foreground PID. It reads kernel Presents from
+`Microsoft-Windows-DxgKrnl` event 184 and pending system-memory surface
+updates from `Microsoft-Windows-Win32k` event 33, version 0. The latter occurs
+on the Win32 GDI presentation path used by NVK. The overlay prefers kernel
+Presents while that source is active. A source or PID change starts a fresh
+set of intervals. Updates from separate GDI surfaces have separate histories.
+
+The counter reports the busiest current surface over approximately one
+second. The readout clears on a target change or after two seconds without
+a fresh sample, evaluated at the configured sampling cadence. These rates
+measure application submissions. Window composition and physical panel
+refresh require independent observations.
 
 API identification follows the foreground application even with FPS disabled.
-Opening Pacecar itself preserves the previous target. DXVK needs matching DLL
+Event 2, version 1 of the local frame-sample ETW provider exposes the widget’s API target PID, API identifier and FPS target PID as three unsigned 32-bit values.
+On the shell desktop, the API field follows Explorer’s graphics device, while game FPS capture is idle. Pacecar clears both targets on its own foreground window.
+DXVK needs matching DLL
 metadata or DXVK initialization/config strings; a filename such as `d3d11.dll`
 alone is not evidence. The DX10 wrapper is classified ahead of its D3D11
 implementation DLL. Mixed DXVK9/11 or Zink/DXVK evidence remains unconfirmed.
@@ -121,10 +130,16 @@ selector checks; headless unavailable-driver behavior. Source controls live in
 `--switch-snapshot` prints the current read-only JSON measurement and returns
 0 for the native bridge, 3 when unavailable; this is not GPU acceptance.
 
-The Wine GUI preview could not create its host D3D/WGL render target. No visual
-pass is claimed. Main-thread review must check the strip at Windows scaling,
-tray show/hide/recreation, device readback and FPS/API against known apps on
-the Switch. No new driver or firmware was installed by this porting session.
+On Switch Lite, the installed ARM64 overlay identified the shell desktop as tgd3d
+1.285 seconds after focus changed. Seven consecutive widget samples reported tgd3d.
+FPS capture was enabled and all eight frame samples had no game FPS. A separate
+tgd3d trace recorded 23 successful DWM Presents in 8.097 seconds. An earlier
+D3D9 LibreQuake run produced 301 Win32k update tokens and 301 compositor
+updates, then exited normally. [Hardware measurements and component hashes](docs/progress/switch-fps-api-20261118.json)
+
+The Wine GUI preview could not create its host D3D/WGL render target. Windows
+scaling, tray recreation and frame-rate transitions in additional games have
+their own acceptance cases.
 
 References: [PresentMon descriptor at the pinned revision](https://github.com/GameTechDev/PresentMon/blob/f50c407ad9492051f4b834d77c31c49f38f0fef0/PresentData/ETW/Microsoft_Windows_DxgKrnl.h),
 [TaskbarCreated contract](https://learn.microsoft.com/en-us/windows/win32/shell/taskbar#taskbar-creation-notification).

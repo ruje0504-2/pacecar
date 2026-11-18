@@ -154,7 +154,9 @@ TEST(FrameTimeProvider, ComputesFpsFromStreamedPresents)
     ASSERT_TRUE(server.Valid());
 
     auto client = std::make_shared<SensorHelperClient>(name);
-    FrameTimeProvider provider(client, [] { return std::uint64_t{0}; });
+    std::uint64_t now = 0;
+    FrameTimeProvider provider(client, [&now] { return now; });
+    client->SetCaptureTarget(100, true);
 
     ASSERT_TRUE(client->Pump(0));
     ASSERT_TRUE(server.Accept());
@@ -182,6 +184,26 @@ TEST(FrameTimeProvider, ComputesFpsFromStreamedPresents)
     EXPECT_EQ(provider.CaptureState(), FrameCaptureState::Capturing);
     EXPECT_NEAR(snapshot.frame.fps, 60.0, 0.1);
     EXPECT_NEAR(snapshot.frame.frameTimeMs, 16.6667, 0.01);
+    now = 2500;
+    EXPECT_EQ(provider.Poll(snapshot), E_FAIL);
+    EXPECT_EQ(provider.LastFps(), 0);
+
+    client->SetCaptureTarget(200, true);
+    ASSERT_TRUE(server.WriteMessage(MessageKind::FrameTimeStats, stats, 3, 3));
+    EXPECT_EQ(provider.Poll(snapshot), E_FAIL);
+    EXPECT_EQ(snapshot.frame.fps, 0);
+
+    stats.targetPid = 200;
+    for (std::size_t i = 0; i < stats.eventCount; ++i)
+    {
+        stats.events[i].pid = 200;
+        stats.events[i].kind = 2;
+    }
+    ASSERT_TRUE(server.WriteMessage(MessageKind::FrameTimeStats, stats, 4, 4));
+    EXPECT_EQ(provider.Poll(snapshot), S_OK);
+    EXPECT_EQ(snapshot.frame.targetPid, 200u);
+    EXPECT_EQ(snapshot.frame.eventKind, 2u);
+    EXPECT_NEAR(snapshot.frame.fps, 60.0, 0.1);
 }
 
 TEST(FrameTimeProvider, ConflictStateIsExplainedAndNotActive)
@@ -192,6 +214,7 @@ TEST(FrameTimeProvider, ConflictStateIsExplainedAndNotActive)
 
     auto client = std::make_shared<SensorHelperClient>(name);
     FrameTimeProvider provider(client, [] { return std::uint64_t{0}; });
+    client->SetCaptureTarget(100, true);
 
     ASSERT_TRUE(client->Pump(0));
     ASSERT_TRUE(server.Accept());
@@ -283,6 +306,7 @@ TEST(FrameTimeProvider, FlagsDegradedWhenCaptureHealthCountersRise)
 
     auto client = std::make_shared<SensorHelperClient>(name);
     FrameTimeProvider provider(client, [] { return std::uint64_t{0}; });
+    client->SetCaptureTarget(100, true);
 
     ASSERT_TRUE(client->Pump(0));
     ASSERT_TRUE(server.Accept());

@@ -148,6 +148,9 @@ internal sealed class PipeServer
             // dropping the excess corrupts both the average and the lows. Keep emitting packed
             // messages until a short batch; always emit at least one so state/health flow even with
             // no presents.
+#if PACECAR_SWITCH
+            _frameTime.FlushFrameBuffers();
+#endif
             var sentStats = false;
             while (true)
             {

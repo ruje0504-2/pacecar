@@ -160,7 +160,7 @@ struct FrameEventPayload
     std::int64_t gpuTicks;    // GPU frame duration; -1 when unknown
     std::uint64_t swapChain;  // DXGI/D3D9 swap-chain identity; 0 when the provider payload was absent
     std::uint32_t pid;
-    std::uint16_t kind; // 1 = present
+    std::uint16_t kind; // 1 = runtime/kernel present, 2 = Win32k GDI surface update
     std::uint16_t reserved;
 };
 

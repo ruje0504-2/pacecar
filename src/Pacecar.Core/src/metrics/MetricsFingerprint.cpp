@@ -73,6 +73,8 @@ std::uint64_t FingerprintSnapshot(const MetricsSnapshot& snapshot) noexcept
     Mix(hash, static_cast<std::uint64_t>(Quantize(snapshot.ping.rttMs, 1.0)));
 
     MixStatus(hash, snapshot.frame.status);
+    Mix(hash, snapshot.frame.targetPid);
+    Mix(hash, snapshot.frame.eventKind);
     Mix(hash, static_cast<std::uint64_t>(Quantize(snapshot.frame.fps, 0.1)));
 
     return hash;
