@@ -302,5 +302,31 @@
       }
     }
   },
-  "daily_selection": "Foreground frame processing, actual Windows named-pipe delivery, five saved game traces, live desktop API reporting, settings replacement and recovery, and persistence after the orderly restart passed. The previous live multi-surface rendering trial ended during its first window update. It supplies no accepted live multi-surface measurement."
+  "daily_selection": "Foreground frame processing, actual Windows named-pipe delivery, five saved game traces, live desktop API reporting, settings replacement and recovery, and persistence after the orderly restart passed. The previous live multi-surface rendering trial ended during its first window update. It supplies no accepted live multi-surface measurement.",
+  "unexpected_windows_restart_after_install": {
+    "next_boot_utc": "2026-11-18T19:32:39.9237480Z",
+    "readback_utc": "2026-11-18T19:36:35.7423101Z",
+    "context": "The machine restarted after a windowed x64 LibreQuake launch. Windows recorded unexpected shutdown and Kernel-Power 41. The frame timing workload had not started.",
+    "system_records": {
+      "EventLog_6008": 67230,
+      "Kernel_Power_41": 67239,
+      "bugcheck_code": 0
+    },
+    "selected_ui_sha256": "135285da2255e087c8b37e5034b023035a01d3990ab2b10e4e0220bdc56c7d24",
+    "interactive_widget_instances": 1,
+    "interactive_session": 1,
+    "fps_capture": false,
+    "actual_profile": {
+      "sha256": "9b44f2e1666c9d603180972b551797a2dec76326f73bc6693db0d3626a37bfa7",
+      "bytes": 3058,
+      "last_write_utc": "2026-11-18T19:03:39.7303599Z"
+    },
+    "actual_backup": {
+      "sha256": "710c6b79e1e5e7cb82311732d4d34adef76a6bf721573dd6bbd470eca95bbf35",
+      "bytes": 3057,
+      "last_write_utc": "2026-11-18T19:03:39.7147321Z"
+    },
+    "scope": "Both file hashes matched the values before the planned restart and the later unexpected restart. The last settings replacement preceded the game launch by about 29 minutes. A settings write in flight at the reset was not exercised.",
+    "platform_record": "https://github.com/ruje0504-2/mesa-switch-woa/blob/361bfa2f04335799ea4d7d3e270214ab286fc5fa/tegra-x1-wddm/docs/DXVK_GAME_RESTART_CACHE_20261118.json"
+  }
 }
