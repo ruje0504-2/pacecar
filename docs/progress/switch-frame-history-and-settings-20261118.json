@@ -1,0 +1,306 @@
+{
+  "platform": "Nintendo Switch Lite, Windows 11 ARM64 22621.2861",
+  "previous_source_commit": "0b35a488a86735c132c2ca81501317557a1356bb",
+  "component_sha256": {
+    "previous_signed_ui": "0bb94b678ac1778db3ffc24c2ad131dd2b8f7306d9917b8644a9bd15a70db8eb",
+    "signed_sensor_helper": "73cddb34770b20efdbf518ac2108b50f529adc0d3f03b46a130586bf9befb245",
+    "first_fps_candidate_signed_ui": "8b8ae79d23c18aeeca90c236cdc1660cc5adacab8dabaa423a7922b53b11e603",
+    "first_fps_candidate_unsigned_ui": "a9d268c95bf74d4db2857f77d58c8ac8ce6378c704f0b0dfc1bb37f16074e81b",
+    "selected_signed_ui": "135285da2255e087c8b37e5034b023035a01d3990ab2b10e4e0220bdc56c7d24",
+    "selected_unsigned_ui": "0a16e3822326a8299b361d39e7d87947950066c96f1592efaf42cd784c952975"
+  },
+  "change": "Within one foreground process, a new surface can use an inactive slot after the one-second live window expires. Duplicate or late events leave the previous timestamp intact. A gap longer than ten seconds starts a new history on that surface.",
+  "native_tests": {
+    "reference": {
+      "frame_processor": {
+        "count": 15,
+        "failures": 3,
+        "exit": 1,
+        "failed_cases": [
+          "TracksReplacementSurfacesWithinOneProcess",
+          "LateOrDuplicateEventsPreserveTheLastValidTimestamp",
+          "FirstPresentAfterALongStopStartsAFreshInterval"
+        ],
+        "test_exe_sha256": "cd54ad53831f279b3b5ef5772ffefa70a044073ddb046b44129c4f5d52656a06",
+        "native_google_test_result_sha256": "e8552fd56ce33b77a28661082975cd090abd764fcbcef364f55840bf11c5e430"
+      },
+      "frame_provider": {
+        "count": 6,
+        "failures": 1,
+        "exit": 1,
+        "failed_cases": [
+          "FollowsReplacementGdiSurfacesBeforeClearingTheTarget"
+        ],
+        "test_exe_sha256": "bef96aa9b9b5c1c564ac8b544dda244a43a36efd8fd86490401e6a2f25b855ea",
+        "native_google_test_result_sha256": "138de4fe9b64f049b3ebeb5325f273122c8f61a970e0b32a75d5f0a5e82ea2a5"
+      },
+      "native_replay": {
+        "output_rows": 147,
+        "output_lf_sha256": "6e985f830b6f1175fc002169cba4b0de0d6acacdc79dbece00d63b901264ac12",
+        "exit": 0,
+        "matches_mac_output": true
+      }
+    },
+    "candidate": {
+      "frame_processor": {
+        "count": 15,
+        "failures": 0,
+        "exit": 0,
+        "failed_cases": [],
+        "test_exe_sha256": "23776a7467b0e2e648ddb1e213164a533353c8709028225ec8226ddbd8ba23b2",
+        "native_google_test_result_sha256": "3d49f81fbb010475359b0f203d3d94efe92ecdd005954fd0abbcf5c181cd871a"
+      },
+      "frame_provider": {
+        "count": 6,
+        "failures": 0,
+        "exit": 0,
+        "failed_cases": [],
+        "test_exe_sha256": "c58eb40af0c41b3211a6e2cde1b054947ff9f741efe64d485069b216102ac330",
+        "native_google_test_result_sha256": "52d1a0ddeaa8817c3558d7a32b5f3e2a629cea115775306faca0f85a3316068a"
+      },
+      "native_replay": {
+        "output_rows": 147,
+        "output_lf_sha256": "e1c8c14234706371cc5c3c09650833a5ad538627b6497cef7beb74a980a01b53",
+        "exit": 0,
+        "matches_mac_output": true
+      }
+    },
+    "entry_point": "The provider fixture sends real FrameTimeStats messages through a Windows named pipe to SensorHelperClient and FrameTimeProvider::Poll. One foreground process presents on twelve successive surfaces, changes cadence from 25 to 50 FPS, and releases the target at the end.",
+    "target_after_end": 0,
+    "state_after_end": "NoTarget",
+    "reference_behavior": "The first divergent provider sample identified surface 8 when the new foreground surface was 9.",
+    "math_boot_utc": "2026-11-18T18:27:58.8515770Z",
+    "pipe_boot_utc": "2026-11-18T18:39:10.9166110Z"
+  },
+  "saved_game_replay": {
+    "source": "Five captured LibreQuake DXVK or Zink sessions with the installed Pacecar. Each widget sample is matched by game PID, surface and nearest independent Win32k pending event timestamp. The replay feeds the frame processor continuously, without replaying the provider polling or idle resets.",
+    "received_events": 1152,
+    "sample_count": 147,
+    "unchanged_samples": 145,
+    "changed_samples": [
+      {
+        "case": "fte-default-dxvk-ec-01",
+        "qpc": 25519280870,
+        "recorded_widget_fps": 13.68443,
+        "reference_replay_fps": 3.25064872,
+        "candidate_replay_fps": 13.6843707
+      },
+      {
+        "case": "fte-default-dxvk-x64-01",
+        "qpc": 22788264742,
+        "recorded_widget_fps": 12.6505,
+        "reference_replay_fps": 2.75613621,
+        "candidate_replay_fps": 12.64919906
+      }
+    ],
+    "input_sha256": "cecb36b9b17efac9ed4aa8bf742241aee73a28c6e201fdd5c0c0870a08e7e195",
+    "host_output_sha256": {
+      "reference": "6e985f830b6f1175fc002169cba4b0de0d6acacdc79dbece00d63b901264ac12",
+      "candidate": "e1c8c14234706371cc5c3c09650833a5ad538627b6497cef7beb74a980a01b53"
+    },
+    "cases": [
+      {
+        "case": "fte-default-dxvk-ec-01",
+        "events": 240,
+        "widget_samples": 31,
+        "maximum_timestamp_alignment_ms": 0.007031,
+        "event_csv_sha256": "c8c822f2fde7619b5adcfeded7d44ffa36f0f32792faea57c7e852998bdf6fc3",
+        "widget_csv_sha256": "86006a9cf1bbd54e54647af3e929b47d8e83dce0c38b689e9b6331f8310e7e91",
+        "median_error_fps": 6e-06,
+        "maximum_error_fps": 5.9e-05,
+        "within_0_01_fps": 31,
+        "outliers": []
+      },
+      {
+        "case": "fte-default-dxvk-x64-01",
+        "events": 242,
+        "widget_samples": 33,
+        "maximum_timestamp_alignment_ms": 0.057604,
+        "event_csv_sha256": "d402b34f999df75cc99c1154cdd70d0e3dea5e7690e08c2714db6ad785773d14",
+        "widget_csv_sha256": "735f34086b7071efe067c899206bd8d78c181ff49f5ff7e63905affc59eb29e6",
+        "median_error_fps": 7.4e-05,
+        "maximum_error_fps": 0.001301,
+        "within_0_01_fps": 33,
+        "outliers": []
+      },
+      {
+        "case": "fte-default-dxvk-x86-01",
+        "events": 248,
+        "widget_samples": 29,
+        "maximum_timestamp_alignment_ms": 0.006354,
+        "event_csv_sha256": "015c2e327913849628bbb6859b389609af4cc3e6aa8167d796d94a1b2be813f1",
+        "widget_csv_sha256": "9ffa7cf5270897fd2c928013fa7e274cb56959f3402af076c554c14d07276f3c",
+        "median_error_fps": 7e-06,
+        "maximum_error_fps": 3.4e-05,
+        "within_0_01_fps": 29,
+        "outliers": []
+      },
+      {
+        "case": "fte-default-zink-x64-01",
+        "events": 217,
+        "widget_samples": 27,
+        "maximum_timestamp_alignment_ms": 0.050625,
+        "event_csv_sha256": "ad2fa70c7fead8f116512f01c63b6e8469f650904fede09b3ea653a891fc3d10",
+        "widget_csv_sha256": "3023fc18c127ad8ffc17c417af4faa9f785239860e20fa84a68e2cf2620df2c0",
+        "median_error_fps": 3.5e-05,
+        "maximum_error_fps": 5.889974,
+        "within_0_01_fps": 26,
+        "outliers": [
+          {
+            "qpc": 17695167048,
+            "recorded": 6.21369,
+            "replay": 0.3237157
+          }
+        ]
+      },
+      {
+        "case": "fte-default-zink-x86-01",
+        "events": 205,
+        "widget_samples": 27,
+        "maximum_timestamp_alignment_ms": 0.067135,
+        "event_csv_sha256": "fe6067184f49611de69084237f4fb08c03b6e762d74de5c8897326cd3699d211",
+        "widget_csv_sha256": "a68640a2b3024de9c982c73ea260606dabce74fbf06aa5729bf5800609f5a6dd",
+        "median_error_fps": 5.6e-05,
+        "maximum_error_fps": 6.646576,
+        "within_0_01_fps": 26,
+        "outliers": [
+          {
+            "qpc": 14923532848,
+            "recorded": 6.9775,
+            "replay": 0.33092358
+          }
+        ]
+      }
+    ]
+  },
+  "original_live_window_interruption": {
+    "boot_utc": "2026-11-18T18:27:58.8515770Z",
+    "recovered_boot_utc": "2026-11-18T18:39:10.9166110Z",
+    "completed_surface_phases": 0,
+    "persisted_game_gdi_updates": 1,
+    "persisted_compositor_updates": 1,
+    "persisted_widget_samples": 0,
+    "last_gpu_sample": {
+      "qpc": 12549944156,
+      "event": "ExecutionState",
+      "source_name": "preempt",
+      "status": "0x00000000",
+      "stage_name": "gpu_fence",
+      "submission_fence": 8264,
+      "last_completed_fence": 8263,
+      "expected": 1784,
+      "observed": 0,
+      "poll_count": 1,
+      "cached_fifo": "0x00000000",
+      "cached_mmu": "0x00000000",
+      "cached_pbdma": "0x00000000",
+      "cached_gr": "0x00000000"
+    },
+    "capture_preference_restored": true,
+    "known_scope": "Windows unexpectedly restarted while the previous installed UI and a live GDI producer were running. The retained trace has no completed producer phase or widget sample. Long-term restart and live multi-surface rendering tests remain open."
+  },
+  "fps_source_commit": "2f90d755861e69db485711750be46f72489be486",
+  "source_commit": "cb52e1b008f9c440469379a0129e6004690834ce",
+  "settings_incident": {
+    "originally_selected_signed_ui_sha256": "0bb94b678ac1778db3ffc24c2ad131dd2b8f7306d9917b8644a9bd15a70db8eb",
+    "after_unexpected_boot_utc": "2026-11-18T18:49:39.1901340Z",
+    "corrupted_size_bytes": 3058,
+    "zero_bytes": 3058,
+    "corrupt_sha256": "9d6b7fcc61fa6ca3e28c7dd922b04072d45bc4db484555a32dee8132f4efe73e",
+    "last_write_utc": "2026-11-18T18:49:19.4734511Z",
+    "first_candidate_selection_task_and_success_receipt_present_after_reboot": false,
+    "restored_bytes": 3058,
+    "restored_sha256": "9b44f2e1666c9d603180972b551797a2dec76326f73bc6693db0d3626a37bfa7",
+    "restored_capture_setting": false,
+    "confirmation": "The retained pre-test profile matches SHA-256 from three earlier hardware observations. The original UI was relaunched with those exact bytes. The evidence establishes loss of file contents across the restart. Its underlying cause remains open."
+  },
+  "settings_fix": {
+    "runtime_commit": "cb52e1b008f9c440469379a0129e6004690834ce",
+    "method": "The save path serializes a stable UI-thread snapshot, flushes the staged file contents to Windows, uses a write-through replacement and preserves a validated recovery file. Keeping the same primary bytes avoids replacing unchanged settings. Load falls back to the validated copy after a missing or malformed primary.",
+    "arm64_production_object_comparison": "Compared every byte except the four-byte ARM64 COFF TimeDateStamp at offset four.",
+    "changed_objects_relative_to_fps_only_build": [
+      "src_Pacecar.Core_src_config_Config.cpp.o",
+      "src_Pacecar.Overlay_pacecar.cpp.o"
+    ],
+    "replacement_binary_imports_FlushFileBuffers": true,
+    "test_coverage": "Native ARM64 tests use private temporary files for zero-filled primary, missing primary, failed replacement while another reader denies delete sharing, normal serialization and debounce.",
+    "tests": {
+      "reference": {
+        "result_sha256": "b7ed3f2b71499baaa323518bc0c879c2dd8aa5be3ef9537f00adca14efe4b465",
+        "exit": 1,
+        "tests": 10,
+        "names": [
+          "RecoversUserSettingsFromAZeroFilledOrMissingPrimary",
+          "UnchangedSaveKeepsThePrimaryAndFailedReplacePreservesIt"
+        ],
+        "failures": 2,
+        "test_exe_sha256": "2f06282ed0f3c0664d2470de811c1521a605652d4eed3a6537d2718c4bffa55f"
+      },
+      "candidate": {
+        "result_sha256": "7fa7a1fd2950df68e3ef372fcd69c9b4eab318bcabd28c3186af94ba968eb887",
+        "exit": 0,
+        "tests": 10,
+        "names": [],
+        "failures": 0,
+        "test_exe_sha256": "280c82bf5989920305a6cf3caabafca470742ee598fea3fd9ded0bf1a582f5a1"
+      }
+    },
+    "durability_scope": "The fixture covers file-level recovery and orderly Windows restart. No deliberate power cut was made."
+  },
+  "installed_desktop": {
+    "utc": "2026-11-18T19:03:57.5589263Z",
+    "boot": "2026-11-18T18:49:39.1972460Z",
+    "ui_sha256": "135285da2255e087c8b37e5034b023035a01d3990ab2b10e4e0220bdc56c7d24",
+    "helper_capture": true,
+    "events_lost": 0,
+    "buffers_lost": 0,
+    "buffers_written": 8,
+    "etw_sha256": "f5f8d1ad75f5ec9d12b5a0480013c1f839d53cb4c7871cbccc356d461abc92e7",
+    "csv_sha256": "492fb2cb2a5c42cb2b65a3c35cf212987e3b729d6b37ddb4d6d71916c087c916",
+    "desktop_api_samples": 7,
+    "frame_samples": 7,
+    "available_game_fps": 0,
+    "explorer_foreground": true,
+    "returned_profile_exact": true,
+    "settings_prior_sha256": "9b44f2e1666c9d603180972b551797a2dec76326f73bc6693db0d3626a37bfa7",
+    "settings_enabled_sha256": "710c6b79e1e5e7cb82311732d4d34adef76a6bf721573dd6bbd470eca95bbf35",
+    "previous_settings_after_enable_match": true,
+    "backup_after_restore_sha256": "710c6b79e1e5e7cb82311732d4d34adef76a6bf721573dd6bbd470eca95bbf35",
+    "original_commandlet_loss_field": null,
+    "original_receipt_sha256": "44043447fcb95a2742623b4b98bcfdf044e8195bc18e388ebc2c4ba502eb2346"
+  },
+  "planned_windows_restart": {
+    "before": "2026-11-18T18:49:39.1972460Z",
+    "after": "2026-11-18T19:07:27.5649700Z",
+    "selected_ui_sha256": "135285da2255e087c8b37e5034b023035a01d3990ab2b10e4e0220bdc56c7d24",
+    "helper_sha256": "73cddb34770b20efdbf518ac2108b50f529adc0d3f03b46a130586bf9befb245",
+    "interactive_widget_instances": 1,
+    "actual_profile_sha256": "9b44f2e1666c9d603180972b551797a2dec76326f73bc6693db0d3626a37bfa7",
+    "actual_backup_sha256": "710c6b79e1e5e7cb82311732d4d34adef76a6bf721573dd6bbd470eca95bbf35",
+    "fps_capture": false,
+    "gpu_problem_code": 0,
+    "kmd_sha256": "6c86354e781e76d671c20bf14b124248a6e1aa264dcab6d459a6b14d551469b0",
+    "windows_event_ids": [
+      1074,
+      6006,
+      6005
+    ],
+    "system_shutdown_request_matched": true,
+    "sd_control": {
+      "bytes": 8192,
+      "original_sha256": "31a5aca19043fc779e483d47992a6677730d27dadcb8d5d467244bc89fa90d3d",
+      "replacement_before_restart_sha256": "a26679c9be7dea9a7d1423fb4c158b2e14760ba6ff596bf6d11f305d2edde827",
+      "replacement_after_restart_sha256": "a26679c9be7dea9a7d1423fb4c158b2e14760ba6ff596bf6d11f305d2edde827",
+      "uncached_reads": true,
+      "storage": {
+        "ddr200": 0,
+        "service": "nvtsdhc",
+        "bus": "SD",
+        "code": 0,
+        "dma_errors": 0,
+        "actual_khz": 199680
+      }
+    }
+  },
+  "daily_selection": "Foreground frame processing, actual Windows named-pipe delivery, five saved game traces, live desktop API reporting, settings replacement and recovery, and persistence after the orderly restart passed. The previous live multi-surface rendering trial ended during its first window update. It supplies no accepted live multi-surface measurement."
+}

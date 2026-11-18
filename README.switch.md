@@ -69,6 +69,9 @@ updates from `Microsoft-Windows-Win32k` event 33, version 0. The latter occurs
 on the Win32 GDI presentation path used by NVK. The overlay prefers kernel
 Presents while that source is active. A source or PID change starts a fresh
 set of intervals. Updates from separate GDI surfaces have separate histories.
+Pacecar tracks up to eight active surfaces. After a surface has been idle for
+one second, a replacement can reuse its slot. A stop longer than ten seconds
+starts a fresh history on that surface.
 
 The counter reports the busiest current surface over approximately one
 second. The readout clears on a target change or after two seconds without
@@ -99,6 +102,8 @@ resetting modes or changing autostart. Its source and the shared update installe
 are in [WindowsDrivers](https://github.com/ruje0504-2/Windows-for-Switch-Drivers/tree/hdh001-winarm-bounded-write/app).
 The optional FPS helper remains separate and disabled for this acceptance round.
 Settings live in `%APPDATA%\PacecarSwitch\config.json`.
+Pacecar flushes changes before replacing this file. If it is missing or damaged,
+Pacecar can load the last valid settings from `config.json.bak` in the same directory.
 
 ## Build
 
@@ -136,6 +141,10 @@ FPS capture was enabled and all eight frame samples had no game FPS. A separate
 tgd3d trace recorded 23 successful DWM Presents in 8.097 seconds. An earlier
 D3D9 LibreQuake run produced 301 Win32k update tokens and 301 compositor
 updates, then exited normally. [Hardware measurements and component hashes](docs/progress/switch-fps-api-20261118.json)
+
+The frame-history and settings update has separate ARM64 results for surface
+replacement, settings recovery, game-trace replay and the installed widget.
+[Frame history and settings acceptance](docs/progress/switch-frame-history-and-settings-20261118.json)
 
 The Wine GUI preview could not create its host D3D/WGL render target. Windows
 scaling, tray recreation and frame-rate transitions in additional games have
