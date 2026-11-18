@@ -131,5 +131,253 @@
       }
     },
     "transition_observation": "The earlier widget lagged the step down to 2 FPS. The current helper flushes ETW buffers at its pipe reporting interval. The desktop run measures target selection."
+  },
+  "verified_librequake_matrix": {
+    "mesa_record": "https://github.com/ruje0504-2/mesa-switch-woa/blob/525821cba5d3f477c3601aabc7e3d5c0b14fa0e5/tegra-x1-wddm/docs/DXVK_ZINK_GAME_MATRIX_20261118.json",
+    "installed_pacecar_source": "264fca5fc55ad3fc2d49bc54bf576e798a85ee54",
+    "scene": "LibreQuake lq_e0m1, 640 by 360, animated foreground game window on the tgd3d desktop",
+    "clock_alignment": "Steady samples start two seconds after each cap transition. Each readout is compared with producer timestamps in its preceding second.",
+    "runs": [
+      {
+        "case": "dxvk-x86",
+        "game_exit": 0,
+        "first_empty_target_after_exit_seconds": 0.553,
+        "capture_setting_restored": true,
+        "intervals": {
+          "cap15": {
+            "game_gdi_fps": 10.33,
+            "window_update_fps": 10.339,
+            "last_two_readouts": [
+              10.65855,
+              10.2792
+            ],
+            "steady_samples": 2,
+            "median_absolute_steady_error_fps": 0.076
+          },
+          "cap8": {
+            "game_gdi_fps": 8.217,
+            "window_update_fps": 8.24,
+            "last_two_readouts": [
+              8.02334,
+              7.97383
+            ],
+            "steady_samples": 3,
+            "median_absolute_steady_error_fps": 0.038
+          },
+          "hitch": {
+            "game_gdi_fps": 1.954,
+            "window_update_fps": 1.951,
+            "last_two_readouts": [
+              1.9905,
+              2.00517
+            ],
+            "steady_samples": 2,
+            "median_absolute_steady_error_fps": 0.054
+          },
+          "recovery": {
+            "game_gdi_fps": 12.204,
+            "window_update_fps": 12.144,
+            "last_two_readouts": [
+              12.56289,
+              12.71116
+            ],
+            "steady_samples": 3,
+            "median_absolute_steady_error_fps": 0.557
+          }
+        }
+      },
+      {
+        "case": "dxvk-x64",
+        "game_exit": 0,
+        "first_empty_target_after_exit_seconds": 0.674,
+        "capture_setting_restored": true,
+        "intervals": {
+          "cap15": {
+            "game_gdi_fps": 10.091,
+            "window_update_fps": 10.093,
+            "last_two_readouts": [
+              10.52239,
+              9.68952
+            ],
+            "steady_samples": 1,
+            "median_absolute_steady_error_fps": 0.406
+          },
+          "cap8": {
+            "game_gdi_fps": 7.987,
+            "window_update_fps": 7.985,
+            "last_two_readouts": [
+              8.07026,
+              7.91972
+            ],
+            "steady_samples": 3,
+            "median_absolute_steady_error_fps": 0.155
+          },
+          "hitch": {
+            "game_gdi_fps": 1.969,
+            "window_update_fps": 1.953,
+            "last_two_readouts": [
+              2.01754,
+              1.6456
+            ],
+            "steady_samples": 1,
+            "median_absolute_steady_error_fps": 0.702
+          },
+          "recovery": {
+            "game_gdi_fps": 10.916,
+            "window_update_fps": 10.953,
+            "last_two_readouts": [
+              10.35852,
+              10.71598
+            ],
+            "steady_samples": 3,
+            "median_absolute_steady_error_fps": 0.212
+          }
+        }
+      },
+      {
+        "case": "zink-x86",
+        "game_exit": 0,
+        "first_empty_target_after_exit_seconds": 0.038,
+        "capture_setting_restored": true,
+        "intervals": {
+          "cap15": {
+            "game_gdi_fps": 13.208,
+            "window_update_fps": 13.29,
+            "last_two_readouts": [
+              12.62217,
+              14.06666
+            ],
+            "steady_samples": 1,
+            "median_absolute_steady_error_fps": 0.854
+          },
+          "cap8": {
+            "game_gdi_fps": 7.599,
+            "window_update_fps": 7.633,
+            "last_two_readouts": [
+              7.86165,
+              8.09294
+            ],
+            "steady_samples": 3,
+            "median_absolute_steady_error_fps": 0.056
+          },
+          "hitch": {
+            "game_gdi_fps": 1.993,
+            "window_update_fps": 2.0,
+            "last_two_readouts": [
+              1.99108,
+              1.99377
+            ],
+            "steady_samples": 2,
+            "median_absolute_steady_error_fps": 0.011
+          },
+          "recovery": {
+            "game_gdi_fps": 12.772,
+            "window_update_fps": 12.944,
+            "last_two_readouts": [
+              13.34286,
+              12.93433
+            ],
+            "steady_samples": 2,
+            "median_absolute_steady_error_fps": 0.202
+          }
+        }
+      },
+      {
+        "case": "zink-x64",
+        "game_exit": 0,
+        "first_empty_target_after_exit_seconds": 0.995,
+        "capture_setting_restored": true,
+        "intervals": {
+          "cap15": {
+            "game_gdi_fps": 12.879,
+            "window_update_fps": 12.795,
+            "last_two_readouts": [
+              12.86257,
+              13.81392
+            ],
+            "steady_samples": 2,
+            "median_absolute_steady_error_fps": 0.575
+          },
+          "cap8": {
+            "game_gdi_fps": 7.569,
+            "window_update_fps": 7.554,
+            "last_two_readouts": [
+              7.78604,
+              8.08301
+            ],
+            "steady_samples": 3,
+            "median_absolute_steady_error_fps": 0.331
+          },
+          "hitch": {
+            "game_gdi_fps": 1.967,
+            "window_update_fps": 1.972,
+            "last_two_readouts": [
+              1.94444,
+              1.98557
+            ],
+            "steady_samples": 3,
+            "median_absolute_steady_error_fps": 0.109
+          },
+          "recovery": {
+            "game_gdi_fps": 12.286,
+            "window_update_fps": 12.289,
+            "last_two_readouts": [
+              12.62242,
+              12.72883
+            ],
+            "steady_samples": 2,
+            "median_absolute_steady_error_fps": 0.714
+          }
+        }
+      },
+      {
+        "case": "dxvk-ec",
+        "game_exit": 0,
+        "first_empty_target_after_exit_seconds": 0.529,
+        "capture_setting_restored": true,
+        "intervals": {
+          "cap15": {
+            "game_gdi_fps": 10.09,
+            "window_update_fps": 10.093,
+            "last_two_readouts": [
+              10.31021,
+              9.93663
+            ],
+            "steady_samples": 2,
+            "median_absolute_steady_error_fps": 0.331
+          },
+          "cap8": {
+            "game_gdi_fps": 8.166,
+            "window_update_fps": 8.172,
+            "last_two_readouts": [
+              8.07631,
+              8.06568
+            ],
+            "steady_samples": 3,
+            "median_absolute_steady_error_fps": 0.034
+          },
+          "hitch": {
+            "game_gdi_fps": 2.004,
+            "window_update_fps": 2.0,
+            "last_two_readouts": [
+              1.98643,
+              1.99512
+            ],
+            "steady_samples": 3,
+            "median_absolute_steady_error_fps": 0.046
+          },
+          "recovery": {
+            "game_gdi_fps": 11.206,
+            "window_update_fps": 11.22,
+            "last_two_readouts": [
+              10.34905,
+              10.63678
+            ],
+            "steady_samples": 2,
+            "median_absolute_steady_error_fps": 0.618
+          }
+        }
+      }
+    ]
   }
 }
